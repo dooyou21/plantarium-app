@@ -1,0 +1,6 @@
+{
+  "name": "Plantarium (플랜타리움)",
+  "description": "물주기 타이밍을 놓치지 않고 건강하게 식물을 키우는 스마트 식물 관리 앱",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
