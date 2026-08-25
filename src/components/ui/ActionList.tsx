@@ -44,29 +44,29 @@ export const ActionListItem: React.FC<ActionListItemProps> = ({
   // Variant styles
   const titleColor =
     variant === 'danger'
-      ? 'text-rose-600'
+      ? 'text-danger-primary'
       : variant === 'warning'
-      ? 'text-amber-700'
+      ? 'text-amber-dark'
       : variant === 'primary'
-      ? 'text-[#316E36]'
+      ? 'text-plant-primary'
       : 'text-gray-800';
 
   const defaultIconBg =
     variant === 'danger'
-      ? 'bg-rose-50 text-rose-600'
+      ? 'bg-danger-bg text-danger-primary'
       : variant === 'warning'
-      ? 'bg-amber-50 text-amber-600'
+      ? 'bg-amber-bg text-amber-primary'
       : variant === 'primary'
-      ? 'bg-emerald-50 text-[#316E36]'
+      ? 'bg-plant-bg-subtle text-plant-primary'
       : 'bg-gray-100 text-gray-600';
 
   const defaultBadgeBg =
     variant === 'danger'
-      ? 'bg-rose-50 text-rose-600 border border-rose-200'
+      ? 'bg-danger-bg text-danger-primary border border-danger-border'
       : variant === 'warning'
-      ? 'bg-amber-100 text-amber-800'
+      ? 'bg-amber-bg text-amber-text border border-amber-border'
       : variant === 'primary'
-      ? 'bg-emerald-50 text-[#316E36] border border-emerald-200'
+      ? 'bg-plant-bg-subtle text-plant-primary border border-plant-border-subtle'
       : 'bg-gray-100 text-gray-500 border border-gray-200';
 
   const isClickable = !!onClick && !disabled;

@@ -13,7 +13,6 @@ import { WaterIntervalChart } from './WaterIntervalChart';
 import { AddDiaryModal } from './AddDiaryModal';
 import { PhotoLightbox } from './PhotoLightbox';
 import confetti from 'canvas-confetti';
-import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   plant: Plant | null;
@@ -72,16 +71,22 @@ export const PlantDetailModal: React.FC<Props> = ({
     : plant.lastFertilizedDate || null;
   const daysSinceFertilize = latestFertilizeDate ? getDaysSinceWatered(latestFertilizeDate) : null;
 
-  // Filter photos for Album tab
-  const albumPhotos = plantDiaries
-    .filter((d) => d.imageUrl)
-    .map((d) => ({
-      id: d.id,
-      url: d.imageUrl!,
-      title: d.title || d.content || '성장 사진',
+  // Filter photos for Album tab (supports both single imageUrl and multiple imageUrls)
+  const albumPhotos = plantDiaries.flatMap((d) => {
+    const photos: string[] = d.imageUrls && d.imageUrls.length > 0
+      ? d.imageUrls
+      : d.imageUrl
+      ? [d.imageUrl]
+      : [];
+    
+    return photos.map((url, idx) => ({
+      id: `${d.id}-${idx}`,
+      url,
+      title: d.title || d.content || `성장 사진 ${idx + 1}`,
       date: formatKoreanDate(d.date),
       daysSinceAdopted: d.daysSinceAdopted,
     }));
+  });
 
   const handleWaterClick = () => {
     // Water drop celebratory confetti
@@ -105,65 +110,65 @@ export const PlantDetailModal: React.FC<Props> = ({
   };
 
   const getUrgencyColor = () => {
-    if (urgency >= 1.0) return 'text-rose-600 bg-rose-50 border-rose-200';
-    if (urgency >= 0.8) return 'text-amber-700 bg-amber-50 border-amber-200';
-    return 'text-[#316E36] bg-emerald-50 border-emerald-200';
+    if (urgency >= 1.0) return 'text-danger-primary bg-danger-bg border-danger-border';
+    if (urgency >= 0.8) return 'text-amber-text bg-amber-bg border-amber-border';
+    return 'text-plant-primary bg-plant-bg-subtle border-plant-border-subtle';
   };
 
   const getLogTypeBadge = (type: DiaryEntry['type']) => {
     switch (type) {
       case 'water':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-blue-50 text-blue-700 border border-blue-200">💧 물주기</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-water-bg text-water-dark border border-water-border">💧 물주기</span>;
       case 'fertilizer':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">💊 영양제</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-amber-bg text-amber-text border border-amber-border">💊 영양제</span>;
       case 'repot':
         return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-stone-100 text-stone-700 border border-stone-300">🪴 분갈이</span>;
       case 'prune':
         return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-purple-50 text-purple-700 border border-purple-200">✂️ 가지치기</span>;
       case 'pest':
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-rose-50 text-rose-700 border border-rose-200">🛡️ 해충·방제</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-danger-bg text-danger-dark border border-danger-border">🛡️ 해충·방제</span>;
       case 'growth':
       case 'photo':
       case 'memo':
       default:
-        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-emerald-50 text-[#316E36] border border-emerald-200">🌱 성장 기록</span>;
+        return <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-xs font-bold bg-plant-bg-subtle text-plant-primary-dark border border-plant-border-subtle">🌱 성장 기록</span>;
     }
   };
 
   const getTimelineNodeDot = (type: DiaryEntry['type']) => {
     switch (type) {
       case 'water':
-        return <div className="w-3 h-3 rounded-full bg-sky-500 ring-4 ring-[#F2F2F7] shrink-0" />;
+        return <div className="w-3 h-3 rounded-full bg-water-primary ring-4 ring-system-bg shrink-0" />;
       case 'fertilizer':
-        return <div className="w-3 h-3 rounded-full bg-amber-500 ring-4 ring-[#F2F2F7] shrink-0" />;
+        return <div className="w-3 h-3 rounded-full bg-amber-primary ring-4 ring-system-bg shrink-0" />;
       case 'repot':
-        return <div className="w-3 h-3 rounded-full bg-[#316E36] ring-4 ring-[#F2F2F7] shrink-0" />;
+        return <div className="w-3 h-3 rounded-full bg-plant-primary ring-4 ring-system-bg shrink-0" />;
       case 'prune':
-        return <div className="w-3 h-3 rounded-full bg-purple-500 ring-4 ring-[#F2F2F7] shrink-0" />;
+        return <div className="w-3 h-3 rounded-full bg-purple-500 ring-4 ring-system-bg shrink-0" />;
       case 'pest':
-        return <div className="w-3 h-3 rounded-full bg-rose-500 ring-4 ring-[#F2F2F7] shrink-0" />;
+        return <div className="w-3 h-3 rounded-full bg-danger-primary ring-4 ring-system-bg shrink-0" />;
       case 'growth':
       case 'photo':
       case 'memo':
       default:
-        return <div className="w-3 h-3 rounded-full bg-emerald-600 ring-4 ring-[#F2F2F7] shrink-0" />;
+        return <div className="w-3 h-3 rounded-full bg-plant-primary ring-4 ring-system-bg shrink-0" />;
     }
   };
 
   return (
-    <div id="plant-detail-modal" className="fixed inset-0 z-40 bg-[#F2F2F7] flex justify-center overflow-y-auto">
-      <div className="min-h-full w-full max-w-2xl bg-[#F2F2F7] flex flex-col border-x border-gray-200 relative">
+    <div id="plant-detail-modal" className="fixed inset-0 z-40 bg-system-bg flex justify-center overflow-y-auto">
+      <div className="min-h-full w-full max-w-2xl bg-system-bg flex flex-col border-x border-border-default relative">
         {/* Navigation Bar */}
-        <div className="sticky top-0 z-30 bg-white border-b border-gray-200 px-4 py-3 flex items-center justify-between">
+        <div className="sticky top-0 z-30 bg-surface-card border-b border-border-default px-4 py-3 flex items-center justify-between">
           <button
             id="back-to-dashboard-btn"
             onClick={onClose}
-            className="flex items-center gap-1 text-[#316E36] font-semibold text-sm hover:opacity-80 transition-opacity cursor-pointer"
+            className="flex items-center gap-1 text-plant-primary font-semibold text-sm hover:opacity-80 transition-opacity cursor-pointer"
           >
             <ChevronLeft className="w-5 h-5" />
             <span>식물 목록</span>
           </button>
-          <span className="text-xs font-semibold text-gray-800 truncate max-w-[180px]">
+          <span className="text-xs font-semibold text-text-primary truncate max-w-[180px]">
             {plant.name}
           </span>
           <div className="w-16" aria-hidden="true" />
@@ -212,40 +217,33 @@ export const PlantDetailModal: React.FC<Props> = ({
                 </div>
               </div>
 
-              {/* Status Chips Row with Unified Height */}
-              <div className="flex items-center gap-2 pt-1 flex-wrap">
+              {/* Status Chips Row with Unified Height and Format (No icons) */}
+              <div className="flex items-center gap-1.5 pt-1 flex-wrap">
                 {/* 1. Water status chip */}
-                <div className={`h-8 px-3 rounded-lg border flex items-center gap-1.5 shrink-0 ${getUrgencyColor()}`}>
-                  <span className="text-xs font-black tracking-tight">D+{daysSinceWater}</span>
-                  <span className="text-xs font-semibold">
-                    {daysSinceWater === 0
-                      ? '오늘 물 줌'
-                      : urgency >= 1.0
-                      ? '물 줄 때 경과'
-                      : urgency >= 0.8
-                      ? '곧 물 줄 때'
-                      : '수분 충분'}
-                  </span>
+                <div className={`h-6.5 px-2.5 rounded-lg border text-[11px] font-semibold flex items-center gap-1 shrink-0 ${getUrgencyColor()}`}>
+                  <span>물 <strong>D+{daysSinceWater}</strong></span>
+                  {daysSinceWater > 0 && (
+                    <span className="text-[10px] font-normal opacity-85">({daysSinceWater}일 전)</span>
+                  )}
                 </div>
 
                 {/* 2. Fertilizer status chip */}
                 {daysSinceFertilize !== null ? (
-                  <div className="h-8 px-3 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-xs font-semibold flex items-center gap-1.5 shrink-0 shadow-2xs">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                  <div className="h-6.5 px-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px] font-semibold flex items-center gap-1 shrink-0 shadow-2xs">
                     <span>영양제 <strong>D+{daysSinceFertilize}</strong></span>
-                    <span className="text-[11px] text-amber-700/80 font-normal">({daysSinceFertilize === 0 ? '오늘' : `${daysSinceFertilize}일 전`})</span>
+                    {daysSinceFertilize > 0 && (
+                      <span className="text-[10px] text-amber-700/80 font-normal">({daysSinceFertilize}일 전)</span>
+                    )}
                   </div>
                 ) : (
-                  <div className="h-8 px-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 text-xs font-medium flex items-center gap-1.5 shrink-0">
-                    <Sparkles className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                  <div className="h-6.5 px-2.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 text-[11px] font-medium flex items-center shrink-0">
                     <span>영양제 미기록</span>
                   </div>
                 )}
 
                 {/* 3. Watering cycle chip */}
-                <div className="h-8 px-3 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 text-xs font-semibold flex items-center gap-1.5 shrink-0">
-                  <Droplets className="w-3.5 h-3.5 text-sky-500 shrink-0" />
-                  <span>{plant.wateringCycle}일 주기</span>
+                <div className="h-6.5 px-2.5 rounded-lg bg-gray-50 border border-gray-200 text-gray-600 text-[11px] font-semibold flex items-center shrink-0">
+                  <span>💧 {plant.wateringCycle}일 주기</span>
                 </div>
               </div>
             </div>
@@ -284,7 +282,7 @@ export const PlantDetailModal: React.FC<Props> = ({
               className="py-2.5 px-2 sm:px-4 bg-white border border-gray-200 hover:bg-gray-50 active:scale-[0.98] text-gray-800 font-bold text-xs sm:text-sm rounded-xl flex items-center justify-center gap-1.5 transition-all whitespace-nowrap cursor-pointer shadow-2xs"
               title="성장 기록"
             >
-              <Plus className="w-4 h-4 text-[#316E36] shrink-0 stroke-[2.2]" />
+              <Plus className="w-4 h-4 text-plant-primary shrink-0 stroke-[2.2]" />
               <span className="hidden sm:inline">성장 기록</span>
               <span className="sm:hidden">성장 기록</span>
             </button>
@@ -352,7 +350,7 @@ export const PlantDetailModal: React.FC<Props> = ({
             <div className="space-y-3">
               {plantDiaries.length === 0 ? (
                 <div className="text-center py-12 px-4 bg-white rounded-xl border border-gray-200">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 text-[#316E36] flex items-center justify-center mx-auto mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-plant-bg-subtle border border-plant-border-subtle text-plant-primary flex items-center justify-center mx-auto mb-3">
                     <BookOpen className="w-6 h-6" />
                   </div>
                   <h4 className="text-sm font-bold text-gray-800 mb-1">첫 성장 기록을 남겨보세요</h4>
@@ -361,7 +359,7 @@ export const PlantDetailModal: React.FC<Props> = ({
                   </p>
                   <button
                     onClick={() => setIsAddDiaryOpen(true)}
-                    className="px-4 py-2 bg-[#316E36] hover:bg-[#27592b] border border-[#27592b] text-white text-xs font-semibold rounded-xl cursor-pointer"
+                    className="px-4 py-2 bg-plant-primary hover:bg-plant-primary-dark border border-plant-primary-dark text-white text-xs font-semibold rounded-xl cursor-pointer"
                   >
                     성장 기록 남기기
                   </button>
@@ -403,7 +401,7 @@ export const PlantDetailModal: React.FC<Props> = ({
                                   setEditingDiary(entry);
                                   setIsAddDiaryOpen(true);
                                 }}
-                                className="text-gray-400 hover:text-[#316E36] hover:bg-emerald-50 p-1.5 rounded-lg transition-colors cursor-pointer"
+                                className="text-gray-400 hover:text-plant-primary hover:bg-plant-bg-subtle p-1.5 rounded-lg transition-colors cursor-pointer"
                                 title="기록 수정"
                               >
                                 <Edit3 className="w-3.5 h-3.5" />
@@ -433,32 +431,74 @@ export const PlantDetailModal: React.FC<Props> = ({
                             </p>
                           )}
 
-                          {/* Attached Photo */}
-                          {entry.imageUrl && (
-                            <div
-                              className="mt-2 rounded-xl overflow-hidden max-h-56 bg-gray-100 border border-gray-200 cursor-pointer group/photo relative"
-                              onClick={() =>
-                                setSelectedPhoto({
-                                  url: entry.imageUrl!,
-                                  caption: entry.title || entry.content,
-                                  date: formatKoreanDate(entry.date),
-                                })
-                              }
-                            >
-                              <img
-                                src={entry.imageUrl}
-                                alt={entry.title || '성장 사진'}
-                                className="w-full h-full object-cover group-hover/photo:scale-102 transition-transform duration-200"
-                                referrerPolicy="no-referrer"
-                              />
-                              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
-                                <span className="bg-black/60 backdrop-blur-xs text-white text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1">
-                                  <ImageIcon className="w-3.5 h-3.5" />
-                                  <span>사진 확대</span>
-                                </span>
+                          {/* Attached Photos (Supports 1 to 3 photos) */}
+                          {(() => {
+                            const entryPhotos = entry.imageUrls && entry.imageUrls.length > 0
+                              ? entry.imageUrls
+                              : entry.imageUrl
+                              ? [entry.imageUrl]
+                              : [];
+
+                            if (entryPhotos.length === 0) return null;
+
+                            if (entryPhotos.length === 1) {
+                              return (
+                                <div
+                                  className="mt-2 rounded-xl overflow-hidden max-h-56 bg-gray-100 border border-gray-200 cursor-pointer group/photo relative"
+                                  onClick={() =>
+                                    setSelectedPhoto({
+                                      url: entryPhotos[0],
+                                      caption: entry.title || entry.content,
+                                      date: formatKoreanDate(entry.date),
+                                    })
+                                  }
+                                >
+                                  <img
+                                    src={entryPhotos[0]}
+                                    alt={entry.title || '성장 사진'}
+                                    className="w-full h-44 sm:h-52 object-cover group-hover/photo:scale-102 transition-transform duration-200"
+                                    referrerPolicy="no-referrer"
+                                  />
+                                  <div className="absolute inset-0 bg-black/10 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                                    <span className="bg-black/60 backdrop-blur-xs text-white text-xs font-semibold px-2.5 py-1 rounded-lg flex items-center gap-1">
+                                      <ImageIcon className="w-3.5 h-3.5" />
+                                      <span>사진 확대</span>
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            return (
+                              <div className={`mt-2 grid gap-1.5 ${entryPhotos.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                                {entryPhotos.map((photoUrl, pIdx) => (
+                                  <div
+                                    key={pIdx}
+                                    className="relative rounded-xl overflow-hidden aspect-square bg-gray-100 border border-gray-200 cursor-pointer group/photo"
+                                    onClick={() =>
+                                      setSelectedPhoto({
+                                        url: photoUrl,
+                                        caption: `${entry.title || entry.content || '성장 기록'} (${pIdx + 1}/${entryPhotos.length})`,
+                                        date: formatKoreanDate(entry.date),
+                                      })
+                                    }
+                                  >
+                                    <img
+                                      src={photoUrl}
+                                      alt={`성장 사진 ${pIdx + 1}`}
+                                      className="w-full h-full object-cover group-hover/photo:scale-105 transition-transform duration-200"
+                                      referrerPolicy="no-referrer"
+                                    />
+                                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/photo:opacity-100 transition-opacity flex items-center justify-center">
+                                      <span className="bg-black/70 text-white text-[11px] font-semibold px-1.5 py-0.5 rounded flex items-center gap-1">
+                                        <ImageIcon className="w-3 h-3" />
+                                      </span>
+                                    </div>
+                                  </div>
+                                ))}
                               </div>
-                            </div>
-                          )}
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -482,7 +522,7 @@ export const PlantDetailModal: React.FC<Props> = ({
                   </p>
                   <button
                     onClick={() => setIsAddDiaryOpen(true)}
-                    className="px-4 py-2 bg-[#316E36] hover:bg-[#27592b] border border-[#27592b] text-white text-xs font-semibold rounded-xl cursor-pointer"
+                    className="px-4 py-2 bg-plant-primary hover:bg-plant-primary-dark border border-plant-primary-dark text-white text-xs font-semibold rounded-xl cursor-pointer"
                   >
                     성장 기록 남기기
                   </button>
@@ -551,7 +591,7 @@ export const PlantDetailModal: React.FC<Props> = ({
               {plant.notes && (
                 <div className="pt-2 border-t border-gray-200">
                   <span className="text-xs font-semibold text-gray-500 block mb-1.5">관리 팁 및 메모</span>
-                  <p className="text-xs text-gray-700 bg-emerald-50/50 border border-emerald-200 p-3 rounded-xl leading-relaxed whitespace-pre-line">
+                  <p className="text-xs text-gray-700 bg-plant-bg-subtle/50 border border-plant-border-subtle p-3 rounded-xl leading-relaxed whitespace-pre-line">
                     {plant.notes}
                   </p>
                 </div>
@@ -560,7 +600,7 @@ export const PlantDetailModal: React.FC<Props> = ({
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={() => onEditPlant(plant)}
-                  className="px-3.5 py-1.5 text-xs font-semibold text-[#316E36] bg-[#316E36]/10 hover:bg-[#316E36]/20 border border-[#316E36]/20 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
+                  className="px-3.5 py-1.5 text-xs font-semibold text-plant-primary bg-plant-primary/10 hover:bg-plant-primary/20 border border-plant-primary/20 rounded-xl flex items-center gap-1.5 transition-colors cursor-pointer"
                 >
                   <Edit3 className="w-3.5 h-3.5" />
                   <span>정보 수정하기</span>

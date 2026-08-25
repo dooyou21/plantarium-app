@@ -37,33 +37,33 @@ export const PlantCard: React.FC<Props> = ({
   const getDDayBadgeStyle = () => {
     if (isWateredToday) {
       return {
-        badgeBg: 'bg-sky-50 text-sky-700 border-sky-200',
-        textColor: 'text-sky-700',
+        badgeBg: 'bg-water-bg text-water-dark border-water-border',
+        textColor: 'text-water-primary',
         statusText: '오늘 완료',
-        barColor: 'bg-sky-500',
+        barColor: 'bg-water-primary',
       };
     }
     if (isOverdue) {
       return {
-        badgeBg: 'bg-rose-50 text-rose-700 border-rose-200',
-        textColor: 'text-rose-600',
+        badgeBg: 'bg-danger-bg text-danger-dark border-danger-border',
+        textColor: 'text-danger-primary',
         statusText: '급수 필요',
-        barColor: 'bg-rose-500',
+        barColor: 'bg-danger-primary',
       };
     }
     if (isDueSoon) {
       return {
-        badgeBg: 'bg-amber-50 text-amber-800 border-amber-200',
-        textColor: 'text-amber-700',
+        badgeBg: 'bg-amber-bg text-amber-text border-amber-border',
+        textColor: 'text-amber-primary',
         statusText: '급수 임박',
-        barColor: 'bg-amber-500',
+        barColor: 'bg-amber-primary',
       };
     }
     return {
-      badgeBg: 'bg-emerald-50 text-[#316E36] border-emerald-200',
-      textColor: 'text-[#316E36]',
+      badgeBg: 'bg-plant-bg-subtle text-plant-primary-dark border-plant-border-subtle',
+      textColor: 'text-plant-primary',
       statusText: '수분 충분',
-      barColor: 'bg-[#316E36]',
+      barColor: 'bg-plant-primary',
     };
   };
 
@@ -85,11 +85,6 @@ export const PlantCard: React.FC<Props> = ({
           referrerPolicy="no-referrer"
           loading="lazy"
         />
-        {plant.sunlight && (
-          <div className="absolute bottom-1 right-1 bg-black/60 text-white rounded-md p-0.5">
-            <Sun className="w-2.5 h-2.5" />
-          </div>
-        )}
       </div>
 
       {/* Center: Plant Details & Progress */}

@@ -53,14 +53,14 @@ export const IntroPermissionModal: React.FC<Props> = ({
           className="w-full max-w-md bg-white rounded-2xl border border-gray-200 overflow-hidden p-6 sm:p-8 flex flex-col text-center shadow-2xl"
         >
           {/* Logo & Brand Icon */}
-          <div className="w-14 h-14 rounded-2xl bg-[#316E36] border border-[#27592b] text-white flex items-center justify-center mx-auto mb-3 shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-plant-primary border border-plant-primary-dark text-white flex items-center justify-center mx-auto mb-3 shadow-sm">
             <Leaf className="w-7 h-7" />
           </div>
 
-          <h2 className="text-2xl font-black text-gray-900 tracking-tight">
+          <h2 className="text-2xl font-black text-text-primary tracking-tight">
             반가워요, 식집사님!
           </h2>
-          <p className="text-xs font-medium text-gray-500 mt-1">
+          <p className="text-xs font-medium text-text-secondary mt-1">
             Plantarium과 함께 반려식물의 물주기와 성장을 기록해보세요.
           </p>
 
@@ -71,7 +71,7 @@ export const IntroPermissionModal: React.FC<Props> = ({
                 htmlFor="intro-nickname-input" 
                 className="block text-xs font-bold text-gray-700 mb-1.5 flex items-center gap-1.5"
               >
-                <User className="w-3.5 h-3.5 text-[#316E36]" />
+                <User className="w-3.5 h-3.5 text-plant-primary" />
                 <span>사용하실 식집사 닉네임을 알려주세요</span>
               </label>
               <input
@@ -82,7 +82,7 @@ export const IntroPermissionModal: React.FC<Props> = ({
                 onChange={(e) => setUserName(e.target.value)}
                 placeholder="예: 초록집사, 베란다정원사"
                 maxLength={20}
-                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-50/80 focus:bg-white rounded-xl border border-gray-200 text-sm font-bold text-gray-900 focus:border-[#316E36] focus:outline-none transition-all placeholder:font-normal placeholder:text-gray-400"
+                className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-50/80 focus:bg-white rounded-xl border border-gray-200 text-sm font-bold text-gray-900 focus:border-plant-primary focus:outline-none transition-all placeholder:font-normal placeholder:text-gray-400"
               />
               <p className="text-[11px] text-gray-400 mt-1.5">
                 닉네임은 언제든 상단 우측 <strong>설정(⚙️)</strong>에서 변경할 수 있습니다.
@@ -90,12 +90,12 @@ export const IntroPermissionModal: React.FC<Props> = ({
             </div>
 
             {/* Feature Note */}
-            <div className="p-3.5 bg-emerald-50/80 rounded-xl border border-emerald-200/80 text-left">
-              <div className="flex items-center gap-1.5 text-xs text-[#316E36] font-bold mb-1">
+            <div className="p-3.5 bg-plant-bg-subtle/80 rounded-xl border border-plant-border-subtle/80 text-left">
+              <div className="flex items-center gap-1.5 text-xs text-plant-primary font-bold mb-1">
                 <Sparkles className="w-3.5 h-3.5 shrink-0" />
                 <span>안전한 브라우저 자체 저장소</span>
               </div>
-              <p className="text-[11px] text-emerald-900/80 leading-relaxed break-keep">
+              <p className="text-[11px] text-plant-primary-dark leading-relaxed break-keep">
                 별도 회원가입이나 로그인 없이 내 기기 브라우저에 실시간으로 안전하게 자동 보관됩니다.
               </p>
             </div>
@@ -104,7 +104,7 @@ export const IntroPermissionModal: React.FC<Props> = ({
             <button
               id="start-plantarium-btn"
               type="submit"
-              className="w-full py-3.5 px-6 bg-[#316E36] hover:bg-[#27592b] active:scale-[0.98] border border-[#27592b] text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm"
+              className="w-full py-3.5 px-6 bg-plant-primary hover:bg-plant-primary-dark active:scale-[0.98] border border-plant-primary-dark text-white font-bold text-sm rounded-xl flex items-center justify-center gap-2 transition-all shadow-sm"
             >
               <span>시작하기</span>
               <ChevronRight className="w-4 h-4" />

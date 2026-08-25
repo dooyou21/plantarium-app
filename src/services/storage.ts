@@ -13,7 +13,15 @@ export function loadPlants(): Plant[] {
       return INITIAL_PLANTS;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      // If storage only contains the old initial sample plants (all IDs start with 'plant-' and count <= 5), upgrade to rich sample
+      if (parsed.length <= 5 && parsed.length > 0 && parsed.every((p) => typeof p.id === 'string' && /^plant-[1-5]$/.test(p.id))) {
+        savePlants(INITIAL_PLANTS);
+        return INITIAL_PLANTS;
+      }
+      return parsed;
+    }
+    return [];
   } catch (err) {
     console.error('Failed to load plants from storage', err);
     return [];
@@ -24,7 +32,17 @@ export function savePlants(plants: Plant[]): void {
   try {
     localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(plants));
   } catch (err) {
-    console.error('Failed to save plants to storage', err);
+    console.error('Failed to save plants to storage, attempting storage optimization', err);
+    try {
+      // Emergency fallback: If storage is full, save with stripped large dataUrls
+      const fallbackPlants = plants.map((p) => ({
+        ...p,
+        imageUrl: (p.imageUrl && p.imageUrl.length > 500000) ? '' : p.imageUrl,
+      }));
+      localStorage.setItem(PLANTS_STORAGE_KEY, JSON.stringify(fallbackPlants));
+    } catch (innerErr) {
+      console.error('Critical: localStorage save failed completely', innerErr);
+    }
   }
 }
 
@@ -36,7 +54,14 @@ export function loadDiaries(): DiaryEntry[] {
       return INITIAL_DIARIES;
     }
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
+    if (Array.isArray(parsed)) {
+      if (parsed.length <= 6 && parsed.length > 0 && parsed.every((d) => typeof d.id === 'string' && /^diary-[1-6]$/.test(d.id))) {
+        saveDiaries(INITIAL_DIARIES);
+        return INITIAL_DIARIES;
+      }
+      return parsed;
+    }
+    return [];
   } catch (err) {
     console.error('Failed to load diaries from storage', err);
     return [];
@@ -47,7 +72,18 @@ export function saveDiaries(diaries: DiaryEntry[]): void {
   try {
     localStorage.setItem(DIARIES_STORAGE_KEY, JSON.stringify(diaries));
   } catch (err) {
-    console.error('Failed to save diaries to storage', err);
+    console.error('Failed to save diaries to storage, attempting storage optimization', err);
+    try {
+      // Emergency fallback
+      const fallbackDiaries = diaries.map((d) => ({
+        ...d,
+        imageUrl: (d.imageUrl && d.imageUrl.length > 500000) ? '' : d.imageUrl,
+        imageUrls: (d.imageUrls || []).filter((u) => u.length <= 500000),
+      }));
+      localStorage.setItem(DIARIES_STORAGE_KEY, JSON.stringify(fallbackDiaries));
+    } catch (innerErr) {
+      console.error('Critical: localStorage save diaries failed', innerErr);
+    }
   }
 }
 
@@ -80,14 +116,27 @@ export function saveUserSettings(settings: UserSettings): void {
   }
 }
 
-export function exportBackupData(): string {
+export function exportBackupData(
+  currentPlants?: Plant[],
+  currentDiaries?: DiaryEntry[],
+  currentSettings?: UserSettings
+): string {
+  const plantsToExport = currentPlants && Array.isArray(currentPlants) ? currentPlants : loadPlants();
+  const diariesToExport = currentDiaries && Array.isArray(currentDiaries) ? currentDiaries : loadDiaries();
+  const settingsToExport = currentSettings ? currentSettings : loadUserSettings();
+
+  // Ensure persistent state is flushed
+  savePlants(plantsToExport);
+  saveDiaries(diariesToExport);
+  saveUserSettings(settingsToExport);
+
   const data = {
     version: '1.0',
     app: 'Plantarium Web App',
     exportedAt: new Date().toISOString(),
-    plants: loadPlants(),
-    diaries: loadDiaries(),
-    settings: loadUserSettings(),
+    plants: plantsToExport,
+    diaries: diariesToExport,
+    settings: settingsToExport,
   };
   return JSON.stringify(data, null, 2);
 }
@@ -186,23 +235,25 @@ export function clearAllData(): void {
 }
 
 export function resetToFactoryState(): void {
-  savePlants([]);
-  saveDiaries([]);
+  savePlants(INITIAL_PLANTS);
+  saveDiaries(INITIAL_DIARIES);
   saveUserSettings({
     ...DEFAULT_USER_SETTINGS,
-    userName: '',
-    hasCompletedOnboarding: false,
+    userName: '초록집사',
+    hasCompletedOnboarding: true,
     lastSavedAt: new Date().toISOString(),
     lastSyncedAt: new Date().toISOString(),
   });
 }
 
-export function resetToSampleData(): void {
-  savePlants(INITIAL_PLANTS);
-  saveDiaries(INITIAL_DIARIES);
+export function wipeAllUserData(): void {
+  savePlants([]);
+  saveDiaries([]);
   saveUserSettings({
     ...DEFAULT_USER_SETTINGS,
-    hasCompletedOnboarding: true,
+    userName: '초록집사',
+    locations: ['거실', '베란다'],
+    hasCompletedOnboarding: false,
     lastSavedAt: new Date().toISOString(),
     lastSyncedAt: new Date().toISOString(),
   });

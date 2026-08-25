@@ -494,7 +494,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F2F2F7] flex flex-col justify-between max-w-3xl mx-auto border-x border-gray-200 selection:bg-[#316E36]/20">
+    <div className="min-h-screen bg-system-bg flex flex-col justify-between max-w-3xl mx-auto border-x border-border-default selection:bg-plant-primary/20">
       <div className="w-full">
         {/* Screen 1: Dashboard Header */}
         <Header
@@ -521,14 +521,14 @@ export default function App() {
         {/* Screen 1: Plant Cards List */}
         <main className="px-4 sm:px-6 py-3">
           {filteredAndSortedPlants.length === 0 ? (
-            <div className="text-center py-16 px-4 bg-white rounded-xl border border-gray-200 my-2">
-              <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-200 text-[#316E36] flex items-center justify-center mx-auto mb-3">
+            <div className="text-center py-16 px-4 bg-surface-card rounded-xl border border-border-default my-2">
+              <div className="w-12 h-12 rounded-xl bg-plant-bg-subtle border border-plant-border-subtle text-plant-primary flex items-center justify-center mx-auto mb-3">
                 <Leaf className="w-6 h-6" />
               </div>
-              <h3 className="text-base font-bold text-gray-900 mb-1">
+              <h3 className="text-base font-bold text-text-primary mb-1">
                 {searchQuery ? '일치하는 식물이 없습니다' : '등록된 식물이 없습니다'}
               </h3>
-              <p className="text-xs text-gray-500 max-w-xs mx-auto mb-4">
+              <p className="text-xs text-text-tertiary max-w-xs mx-auto mb-4">
                 {searchQuery
                   ? '검색어를 변경하거나 필터를 초기화해보세요.'
                   : '새 식물을 추가하고 물주기 관리를 시작해보세요.'}
@@ -541,7 +541,7 @@ export default function App() {
                   setPlantToEdit(null);
                   setIsPlantFormOpen(true);
                 }}
-                className="px-4 py-2.5 bg-[#316E36] text-white text-xs font-bold rounded-xl border border-[#27592b] hover:bg-[#27592b] active:scale-95 transition-all inline-flex items-center gap-1.5"
+                className="px-4 py-2.5 bg-plant-primary text-white text-xs font-bold rounded-xl border border-plant-primary-dark hover:bg-plant-primary-dark active:scale-95 transition-all inline-flex items-center gap-1.5"
               >
                 <Plus className="w-4 h-4" />
                 <span>새 식물 추가하기</span>
@@ -583,10 +583,10 @@ export default function App() {
             <div className="flex items-center gap-3 min-w-0">
               <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                 globalToast.type === 'success'
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                  ? 'bg-plant-primary/20 text-plant-primary-light border border-plant-primary/30'
                   : globalToast.type === 'error'
-                  ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30'
-                  : 'bg-sky-500/20 text-sky-400 border border-sky-500/30'
+                  ? 'bg-danger-primary/20 text-danger-primary border border-danger-primary/30'
+                  : 'bg-water-primary/20 text-water-primary border border-water-primary/30'
               }`}>
                 {globalToast.type === 'success' ? (
                   <Check className="w-4 h-4 stroke-[2.5]" />
@@ -682,6 +682,8 @@ export default function App() {
       <SettingsModal
         isOpen={isSettingsOpen}
         settings={settings}
+        plants={plants}
+        diaries={diaries}
         onClose={() => setIsSettingsOpen(false)}
         onUpdateSettings={(newSettings) =>
           setSettings((prev) => ({ ...prev, ...newSettings }))

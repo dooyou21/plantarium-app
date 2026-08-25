@@ -7,7 +7,8 @@ export interface DiaryEntry {
   type: CareLogType;
   title?: string;
   content: string;
-  imageUrl?: string;
+  imageUrl?: string; // Legacy or primary photo
+  imageUrls?: string[]; // Up to 3 photos
   daysSinceAdopted?: number;
   daysSinceLastWater?: number;
 }

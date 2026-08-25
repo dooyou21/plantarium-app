@@ -59,8 +59,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
       {isOpen && (
         <div
           id={`${id}-backdrop`}
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 overflow-y-auto overflow-x-hidden touch-pan-y overscroll-contain"
           onClick={closeOnBackdrop ? onClose : undefined}
+          style={{ touchAction: 'pan-y' }}
         >
           <motion.div
             id={id}
@@ -68,8 +69,9 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
             transition={{ type: 'spring', damping: 28, stiffness: 280 }}
-            className={`w-full ${MAX_WIDTH_MAP[maxWidth]} bg-white rounded-t-3xl sm:rounded-2xl border border-gray-200 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden relative my-0 sm:my-auto`}
+            className={`w-full max-w-full ${MAX_WIDTH_MAP[maxWidth]} bg-white rounded-t-3xl sm:rounded-2xl border border-gray-200 shadow-2xl flex flex-col max-h-[92dvh] sm:max-h-[88vh] overflow-hidden overflow-x-hidden relative my-0 sm:my-auto touch-pan-y`}
             onClick={(e) => e.stopPropagation()}
+            style={{ touchAction: 'pan-y' }}
           >
             {/* Header */}
             {(title || showCloseButton) && (

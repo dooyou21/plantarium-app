@@ -59,8 +59,9 @@ export const Modal: React.FC<ModalProps> = ({
       {isOpen && (
         <div
           id={`${id}-backdrop`}
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto overscroll-contain"
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 overflow-y-auto overflow-x-hidden touch-pan-y overscroll-contain"
           onClick={closeOnBackdrop ? onClose : undefined}
+          style={{ touchAction: 'pan-y' }}
         >
           <motion.div
             id={id}
@@ -68,8 +69,9 @@ export const Modal: React.FC<ModalProps> = ({
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-            className={`w-full ${MAX_WIDTH_MAP[maxWidth]} bg-white rounded-2xl sm:rounded-2xl border border-gray-200 shadow-2xl flex flex-col max-h-[88dvh] sm:max-h-[88vh] overflow-hidden relative my-auto`}
+            className={`w-full max-w-full ${MAX_WIDTH_MAP[maxWidth]} bg-white rounded-2xl sm:rounded-2xl border border-gray-200 shadow-2xl flex flex-col max-h-[88dvh] sm:max-h-[88vh] overflow-hidden overflow-x-hidden relative my-auto touch-pan-y`}
             onClick={(e) => e.stopPropagation()}
+            style={{ touchAction: 'pan-y' }}
           >
             {/* Header */}
             {(title || showCloseButton) && (

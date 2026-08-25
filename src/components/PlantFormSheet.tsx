@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Image, Sparkles, Sun, Wind, Check, Trash2, AlertCircle, Plus, MapPin, Search } from 'lucide-react';
+import { Image, Sparkles, Sun, Wind, Check, Trash2, AlertCircle, Plus, Minus, MapPin, Search, Droplets, Calendar, ChevronsUpDown } from 'lucide-react';
 import { Plant } from '../types';
 import { getTodayString } from '../utils/dateUtils';
+import { compressImage } from '../utils/imageUtils';
 import { PLANT_PRESET_IMAGES } from '../data/initialData';
 import { POPULAR_PLANTS_PRESETS, PlantPreset } from '../data/plantPresets';
 import { BottomSheet } from './ui/BottomSheet';
@@ -48,6 +49,7 @@ export const PlantFormSheet: React.FC<Props> = ({
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setShowPresetPicker(false);
     setShowDeleteConfirm(false);
     setIsAddingCustomLoc(false);
     setNewLocInput('');
@@ -91,28 +93,27 @@ export const PlantFormSheet: React.FC<Props> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setImageUrl(event.target.result as string);
-        }
-      };
-      reader.readAsDataURL(file);
+      try {
+        const compressed = await compressImage(file, 900, 900, 0.78);
+        setImageUrl(compressed);
+      } catch (err) {
+        console.error('Image compression failed, using fallback', err);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          if (event.target?.result) {
+            setImageUrl(event.target.result as string);
+          }
+        };
+        reader.readAsDataURL(file);
+      }
     }
   };
 
   const handleSelectPreset = (preset: typeof PLANT_PRESET_IMAGES[0]) => {
     setImageUrl(preset.url);
-    if (!name) setName(preset.name.split(' (')[0]);
-    if (!species) setSpecies(preset.species);
-    if (!plantToEdit) setWateringCycle(preset.defaultCycle);
-    if (!plantToEdit) {
-      const matchingLoc = locations.find((l) => preset.location.includes(l)) || locations[0] || '거실';
-      setLocation(matchingLoc);
-    }
     setShowPresetPicker(false);
   };
 
@@ -184,7 +185,7 @@ export const PlantFormSheet: React.FC<Props> = ({
         type="button"
         onClick={handleSubmit}
         disabled={!name.trim()}
-        className="w-full py-3.5 px-4 bg-[#316E36] hover:bg-[#27592b] active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-semibold text-sm rounded-xl border border-[#27592b] transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-xs cursor-pointer"
+        className="w-full py-3.5 px-4 bg-plant-primary hover:bg-plant-primary-dark active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none text-white font-semibold text-sm rounded-xl border border-plant-primary-dark transition-all flex items-center justify-center gap-2 whitespace-nowrap shadow-xs cursor-pointer"
       >
         <Check className="w-4 h-4 shrink-0" />
         <span>{plantToEdit ? '수정 완료' : '식물 등록하기'}</span>
@@ -272,10 +273,14 @@ export const PlantFormSheet: React.FC<Props> = ({
                 <button
                   type="button"
                   onClick={() => setShowPresetPicker(!showPresetPicker)}
-                  className="px-3 py-2 bg-[#316E36]/10 hover:bg-[#316E36]/20 border border-[#316E36]/20 text-[#316E36] text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer"
+                  className={`px-3 py-2 border text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors whitespace-nowrap cursor-pointer ${
+                    showPresetPicker
+                      ? 'bg-plant-primary text-white border-plant-primary'
+                      : 'bg-plant-primary/10 hover:bg-plant-primary/20 border-plant-primary/20 text-plant-primary'
+                  }`}
                 >
                   <Sparkles className="w-3.5 h-3.5 shrink-0" />
-                  <span>추천 프리셋</span>
+                  <span>사진 프리셋</span>
                 </button>
               </div>
               <p className="text-[11px] text-gray-400 break-keep leading-tight">내 앨범의 사진을 올리거나 프리셋 중에서 선택할 수 있습니다.</p>
@@ -289,11 +294,11 @@ export const PlantFormSheet: React.FC<Props> = ({
             onChange={handleImageFile}
           />
 
-          {/* Preset Gallery Accordion */}
+          {/* Preset Gallery Accordion - Only selects image */}
           {showPresetPicker && (
             <div className="mt-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
-              <div className="text-xs font-semibold text-gray-600 mb-2 flex items-center justify-between">
-                <span className="whitespace-nowrap">식물 사진 프리셋 선택</span>
+              <div className="text-xs font-semibold text-gray-700 mb-2 flex items-center justify-between">
+                <span>사진 프리셋</span>
                 <button
                   type="button"
                   onClick={() => setShowPresetPicker(false)}
@@ -302,25 +307,30 @@ export const PlantFormSheet: React.FC<Props> = ({
                   닫기
                 </button>
               </div>
-              <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-                {PLANT_PRESET_IMAGES.map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleSelectPreset(preset)}
-                    className="flex flex-col items-center gap-1 p-1 rounded-lg hover:bg-white border border-transparent hover:border-gray-200 transition-all text-center group cursor-pointer"
-                  >
-                    <img
-                      src={preset.url}
-                      alt={preset.name}
-                      className="w-12 h-12 rounded-lg object-cover group-hover:scale-105 transition-transform"
-                      referrerPolicy="no-referrer"
-                    />
-                    <span className="text-[10px] text-gray-600 truncate w-full group-hover:text-[#316E36] font-medium">
-                      {preset.name.split(' (')[0]}
-                    </span>
-                  </button>
-                ))}
+              <div className="grid grid-cols-4 gap-2">
+                {PLANT_PRESET_IMAGES.map((preset, idx) => {
+                  const isSelected = imageUrl === preset.url;
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleSelectPreset(preset)}
+                      className={`w-full aspect-square rounded-xl overflow-hidden border transition-all cursor-pointer bg-gray-100 ${
+                        isSelected
+                          ? 'border-plant-primary-light shadow-xs scale-98'
+                          : 'border-gray-200 hover:border-gray-300 hover:scale-102'
+                      }`}
+                      title={preset.name}
+                    >
+                      <img
+                        src={preset.url}
+                        alt={preset.name}
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -339,7 +349,7 @@ export const PlantFormSheet: React.FC<Props> = ({
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="예: 초록이, 거실 몬스테라"
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
             />
           </div>
 
@@ -359,7 +369,7 @@ export const PlantFormSheet: React.FC<Props> = ({
                 }}
                 onFocus={() => setIsSpeciesFocused(true)}
                 placeholder="예: 몬스테라, 올리브, 여인초..."
-                className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white"
+                className="w-full pl-3.5 pr-8 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
               />
               <Search className="w-4 h-4 text-gray-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
             </div>
@@ -376,11 +386,11 @@ export const PlantFormSheet: React.FC<Props> = ({
                     key={preset.id}
                     type="button"
                     onClick={() => handleSelectPopularPreset(preset)}
-                    className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-50/70 transition-colors flex items-center justify-between gap-2 group cursor-pointer"
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-plant-bg-subtle/70 transition-colors flex items-center justify-between gap-2 group cursor-pointer"
                   >
                     <div className="min-w-0">
                       <div className="flex items-center gap-1.5">
-                        <span className="text-xs font-bold text-gray-900 group-hover:text-[#316E36]">
+                        <span className="text-xs font-bold text-gray-900 group-hover:text-plant-primary">
                           {preset.name}
                         </span>
                         <span className="text-[10px] text-gray-400 truncate">
@@ -391,7 +401,7 @@ export const PlantFormSheet: React.FC<Props> = ({
                         {preset.summary}
                       </p>
                     </div>
-                    <div className="text-right shrink-0 flex items-center gap-1 text-[11px] font-semibold text-emerald-800 bg-emerald-100/60 px-2 py-1 rounded-lg">
+                    <div className="text-right shrink-0 flex items-center gap-1 text-[11px] font-semibold text-plant-primary-dark bg-plant-bg-subtle px-2 py-1 rounded-lg">
                       <span>💧 {preset.wateringCycle}일</span>
                     </div>
                   </button>
@@ -401,7 +411,7 @@ export const PlantFormSheet: React.FC<Props> = ({
 
             {/* Notification message when preset applied */}
             {appliedPresetMessage && (
-              <p className="text-[11px] text-[#316E36] font-medium mt-1.5 flex items-center gap-1 bg-emerald-50/80 p-1.5 rounded-lg border border-emerald-200/60">
+              <p className="text-[11px] text-plant-primary font-medium mt-1.5 flex items-center gap-1 bg-plant-bg-subtle/80 p-1.5 rounded-lg border border-plant-border-subtle/60">
                 <Check className="w-3.5 h-3.5 shrink-0" />
                 <span>{appliedPresetMessage}</span>
               </p>
@@ -409,124 +419,143 @@ export const PlantFormSheet: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Watering Cycle */}
-        <div className="bg-sky-50/50 p-4 rounded-xl border border-sky-100">
-          <div className="flex items-center justify-between mb-2">
-            <label className="text-xs font-bold text-sky-950 flex items-center gap-1.5 whitespace-nowrap">
-              <span>💧 물주기 주기</span>
-            </label>
-            <span className="text-sm font-bold text-sky-700 bg-white px-2.5 py-0.5 rounded-lg border border-sky-200 whitespace-nowrap">
-              {wateringCycle}일마다
-            </span>
-          </div>
-          <input
-            id="plant-watering-cycle-range"
-            type="range"
-            min="1"
-            max="60"
-            value={wateringCycle}
-            onChange={(e) => setWateringCycle(parseInt(e.target.value, 10))}
-            className="w-full accent-[#316E36] cursor-pointer"
-          />
-          <div className="flex justify-between text-[11px] text-sky-700/80 mt-1 font-medium whitespace-nowrap">
-            <span>자주 (1일)</span>
-            <span>일주일 (7일)</span>
-            <span>2주 (14일)</span>
-            <span>한달 (30일)</span>
-          </div>
-        </div>
+        {/* Watering Cycle - Styled matching iOS precision slider */}
+        {(() => {
+          const maxCycle = Math.max(30, wateringCycle);
+          const percentage = Math.max(0, Math.min(100, ((wateringCycle - 1) / (maxCycle - 1)) * 100));
+          return (
+            <div className="bg-water-bg p-4 rounded-2xl border border-sky-100/90 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-bold text-sky-950 flex items-center gap-1.5 whitespace-nowrap">
+                  <span>💧 급수 주기</span>
+                </label>
+                <span className="text-xs font-bold text-sky-700 bg-white px-3 py-1 rounded-xl border border-sky-200 shadow-2xs whitespace-nowrap">
+                  {wateringCycle}일마다
+                </span>
+              </div>
+              <div className="py-1">
+                <input
+                  id="plant-watering-cycle-range"
+                  type="range"
+                  min="1"
+                  max={maxCycle}
+                  value={wateringCycle}
+                  onChange={(e) => setWateringCycle(parseInt(e.target.value, 10))}
+                  style={{
+                    background: `linear-gradient(to right, var(--color-plant-primary-dark) 0%, var(--color-plant-primary) ${percentage}%, var(--color-border-light) ${percentage}%, var(--color-border-light) 100%)`,
+                  }}
+                  className="plant-slider cursor-pointer"
+                />
+              </div>
+              <div className="flex justify-between text-xs text-sky-800/80 font-medium px-0.5 whitespace-nowrap">
+                <span>자주 (1일)</span>
+                <span>일주일 (7일)</span>
+                <span>2주 (14일)</span>
+                <span>한달 (30일)</span>
+              </div>
+            </div>
+          );
+        })()}
 
-        {/* Sunlight & Ventilation (Wind) Conditions */}
+        {/* Sunlight & Ventilation (Wind) Conditions with Dropdown Arrows */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap flex items-center gap-1">
-              <Sun className="w-3.5 h-3.5 text-amber-500" />
-              <span>햇빛 조건</span>
+              <span>☀️ 햇빛 조건</span>
             </label>
-            <select
-              id="plant-sunlight-select"
-              value={sunlight}
-              onChange={(e) => setSunlight(e.target.value as any)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white cursor-pointer"
-            >
-              <option value="direct">☀️ 직사광선 (양지 - 베란다, 창가 앞)</option>
-              <option value="indirect">⛅ 은은한 햇빛 (반양지 - 거실, 밝은 실내)</option>
-              <option value="low">☁️ 그늘 (반음지 - 방 안, 북향, 욕실)</option>
-            </select>
+            <div className="relative">
+              <select
+                id="plant-sunlight-select"
+                value={sunlight}
+                onChange={(e) => setSunlight(e.target.value as any)}
+                className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm bg-white cursor-pointer"
+              >
+                <option value="direct">☀️ 직사광선 (양지 - 베란다, 창가 앞)</option>
+                <option value="indirect">⛅ 은은한 햇빛 (반양지 - 거실, 밝은 실내)</option>
+                <option value="low">☁️ 그늘 (반음지 - 방 안, 북향, 욕실)</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-700">
+                <ChevronsUpDown className="w-4 h-4" />
+              </div>
+            </div>
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap flex items-center gap-1">
-              <Wind className="w-3.5 h-3.5 text-sky-500" />
-              <span>바람·통풍 조건</span>
+              <span>💨 바람·통풍 조건</span>
             </label>
-            <select
-              id="plant-ventilation-select"
-              value={ventilation}
-              onChange={(e) => setVentilation(e.target.value as any)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white cursor-pointer"
-            >
-              <option value="high">🌬️ 원활한 통풍 (환기 필수, 창문가)</option>
-              <option value="normal">🌿 보통 (일반적인 실내 환기)</option>
-              <option value="low">🍃 약한 통풍 (실내 안쪽, 밀폐 공간)</option>
-            </select>
+            <div className="relative">
+              <select
+                id="plant-ventilation-select"
+                value={ventilation}
+                onChange={(e) => setVentilation(e.target.value as any)}
+                className="w-full appearance-none pl-3.5 pr-9 py-2.5 rounded-xl border border-gray-200 text-sm bg-white cursor-pointer"
+              >
+                <option value="high">🌬️ 원활한 통풍 (환기 필수, 창문가)</option>
+                <option value="normal">🌿 보통 (일반적인 실내 환기)</option>
+                <option value="low">🍃 약한 통풍 (실내 안쪽, 밀폐 공간)</option>
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-700">
+                <ChevronsUpDown className="w-4 h-4" />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Dates */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap">
-              마지막 물준 날
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap flex items-center gap-1">
+              <span>💧 마지막 물준 날</span>
             </label>
             <input
               id="plant-last-watered-input"
               type="date"
               value={lastWateredDate}
               onChange={(e) => setLastWateredDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap">
-              마지막 영양제 준 날 (선택)
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap flex items-center gap-1">
+              <span>✨ 마지막 영양제 준 날 (선택)</span>
             </label>
             <input
               id="plant-last-fertilized-input"
               type="date"
               value={lastFertilizedDate}
               onChange={(e) => setLastFertilizedDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
             />
           </div>
 
           <div className="sm:col-span-2">
-            <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap">
-              처음 데려온 날 (입양일)
+            <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap flex items-center gap-1">
+              <span>🗓️ 처음 데려온 날 (입양일)</span>
             </label>
             <input
               id="plant-adopted-date-input"
               type="date"
               value={adoptedDate}
               onChange={(e) => setAdoptedDate(e.target.value)}
-              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
             />
           </div>
         </div>
 
-        {/* Location */}
+        {/* Location (with extra margin between label and buttons) */}
         <div>
-          <div className="flex items-center justify-between mb-1.5">
+          <div className="flex items-center justify-between mb-3.5">
             <label className="text-xs font-semibold text-gray-700 flex items-center gap-1 whitespace-nowrap">
-              <MapPin className="w-3.5 h-3.5 text-[#316E36]" />
+              <MapPin className="w-3.5 h-3.5 text-plant-primary" />
               <span>화분 위치 (장소)</span>
             </label>
             {!isAddingCustomLoc && (
               <button
                 type="button"
                 onClick={() => setIsAddingCustomLoc(true)}
-                className="text-xs font-semibold text-[#316E36] hover:text-[#27592b] flex items-center gap-0.5 cursor-pointer"
+                className="text-xs font-semibold text-plant-primary hover:text-plant-primary-dark flex items-center gap-0.5 cursor-pointer"
               >
                 <Plus className="w-3.5 h-3.5" />
                 <span>새 장소 추가</span>
@@ -535,7 +564,7 @@ export const PlantFormSheet: React.FC<Props> = ({
           </div>
 
           {/* Location Options Chips */}
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-1.5">
             {locations.map((loc) => {
               const isSelected = location === loc;
               return (
@@ -543,13 +572,13 @@ export const PlantFormSheet: React.FC<Props> = ({
                   key={loc}
                   type="button"
                   onClick={() => setLocation(loc)}
-                  className={`px-3 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all flex items-center gap-1 cursor-pointer border ${
                     isSelected
-                      ? 'bg-emerald-50 border-[#316E36] text-[#316E36] shadow-2xs'
+                      ? 'bg-plant-bg-subtle border-plant-primary text-plant-primary shadow-2xs'
                       : 'bg-white border-gray-200 text-gray-700 hover:bg-gray-50'
                   }`}
                 >
-                  {isSelected && <Check className="w-3.5 h-3.5 text-[#316E36] stroke-[2.5]" />}
+                  {isSelected && <Check className="w-3 h-3 text-plant-primary stroke-[2.5]" />}
                   <span>{loc}</span>
                 </button>
               );
@@ -559,9 +588,9 @@ export const PlantFormSheet: React.FC<Props> = ({
             {location && !locations.includes(location) && (
               <button
                 type="button"
-                className="px-3 py-2 rounded-xl text-xs font-semibold bg-emerald-50 border border-[#316E36] text-[#316E36] flex items-center gap-1.5"
+                className="px-2.5 py-1 rounded-lg text-[11px] font-semibold bg-plant-bg-subtle border border-plant-primary text-plant-primary flex items-center gap-1"
               >
-                <Check className="w-3.5 h-3.5 text-[#316E36] stroke-[2.5]" />
+                <Check className="w-3 h-3 text-plant-primary stroke-[2.5]" />
                 <span>{location}</span>
               </button>
             )}
@@ -569,7 +598,7 @@ export const PlantFormSheet: React.FC<Props> = ({
 
           {/* Inline Add Custom Location Form */}
           {isAddingCustomLoc && (
-            <div className="mt-2 flex items-center gap-2 p-2 bg-emerald-50/70 border border-emerald-200 rounded-xl">
+            <div className="mt-2 flex items-center gap-2 p-2 bg-plant-bg-subtle/70 border border-plant-border-subtle rounded-xl">
               <input
                 type="text"
                 value={newLocInput}
@@ -581,14 +610,14 @@ export const PlantFormSheet: React.FC<Props> = ({
                   }
                 }}
                 placeholder="새 장소 이름 (예: 침실, 서재, 주방 선반)"
-                className="flex-1 px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-xs text-gray-900 focus:outline-none focus:border-[#316E36]"
+                className="flex-1 px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-xs text-gray-900 focus:outline-none focus:border-plant-primary"
                 autoFocus
               />
               <button
                 type="button"
                 onClick={handleCreateNewLocation}
                 disabled={!newLocInput.trim()}
-                className="px-3 py-1.5 bg-[#316E36] hover:bg-[#27592b] disabled:opacity-50 text-white rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer"
+                className="px-3 py-1.5 bg-plant-primary hover:bg-plant-primary-dark disabled:opacity-50 text-white rounded-lg text-xs font-bold whitespace-nowrap cursor-pointer"
               >
                 추가
               </button>
@@ -615,7 +644,7 @@ export const PlantFormSheet: React.FC<Props> = ({
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             placeholder="예: 통풍에 신경 쓰기, 공중분무 자주 해주기"
-            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:border-[#316E36] bg-white resize-none"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-gray-200 text-sm bg-white resize-none"
           />
         </div>
       </form>

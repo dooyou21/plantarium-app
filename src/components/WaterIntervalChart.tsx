@@ -14,7 +14,7 @@ export const WaterIntervalChart: React.FC<Props> = ({ wateringHistory, targetCyc
     return (
       <div id="water-chart-empty" className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-center">
         <div className="flex items-center justify-center gap-1.5 text-xs text-gray-500 font-medium mb-1">
-          <BarChart3 className="w-3.5 h-3.5 text-[#316E36]" />
+          <BarChart3 className="w-3.5 h-3.5 text-plant-primary" />
           <span>급수 간격 데이터 축적 중</span>
         </div>
         <p className="text-xs text-gray-400">
@@ -33,7 +33,7 @@ export const WaterIntervalChart: React.FC<Props> = ({ wateringHistory, targetCyc
     <div id="water-interval-chart-card" className="bg-white rounded-xl p-4 border border-gray-200">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-1.5">
-          <div className="w-6 h-6 rounded-lg bg-[#316E36]/10 border border-[#316E36]/20 flex items-center justify-center text-[#316E36]">
+          <div className="w-6 h-6 rounded-lg bg-plant-primary/10 border border-plant-primary/20 flex items-center justify-center text-plant-primary">
             <TrendingUp className="w-3.5 h-3.5" />
           </div>
           <div>
@@ -55,13 +55,13 @@ export const WaterIntervalChart: React.FC<Props> = ({ wateringHistory, targetCyc
         <div className="relative h-32 flex items-end justify-between gap-3">
           {/* Target cycle guide dashed line & floating badge */}
           <div
-            className="absolute left-0 right-0 border-b border-dashed border-[#316E36]/40 flex items-center justify-end pointer-events-none z-10"
+            className="absolute left-0 right-0 border-b border-dashed border-plant-primary/40 flex items-center justify-end pointer-events-none z-10"
             style={{
               bottom: `${Math.min(90, Math.max(15, (targetCycle / (maxInterval * 1.3)) * 100))}%`,
             }}
           >
             <div className="absolute right-0 -top-3.5 flex items-center">
-              <span className="text-[10px] font-bold text-[#316E36] bg-white border border-[#316E36]/30 px-2 py-0.5 rounded-md shadow-2xs whitespace-nowrap">
+              <span className="text-[10px] font-bold text-plant-primary bg-white border border-plant-primary/30 px-2 py-0.5 rounded-md shadow-2xs whitespace-nowrap">
                 기준 {targetCycle}일
               </span>
             </div>
@@ -81,10 +81,10 @@ export const WaterIntervalChart: React.FC<Props> = ({ wateringHistory, targetCyc
                   <div
                     className={`w-full rounded-t-lg transition-all duration-500 ${
                       isMatch
-                        ? 'bg-[#316E36]'
+                        ? 'bg-plant-primary'
                         : isOverTarget
-                        ? 'bg-amber-600'
-                        : 'bg-sky-600'
+                        ? 'bg-amber-primary'
+                        : 'bg-water-primary'
                     }`}
                     style={{ height: `${heightPercent}%` }}
                   />

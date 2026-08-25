@@ -4,8 +4,9 @@ import {
   Thermometer, Droplets, User, AlertCircle, Bell, BellRing, Send, Sparkles, Smartphone,
   MapPin, Plus, X
 } from 'lucide-react';
-import { UserSettings } from '../types';
-import { exportBackupData, importBackupData, clearAllData, resetToFactoryState, getStorageStats } from '../services/storage';
+import { Plant, DiaryEntry, UserSettings } from '../types';
+import { exportBackupData, importBackupData, clearAllData, resetToFactoryState, wipeAllUserData, getStorageStats } from '../services/storage';
+import { isDeveloperAccount } from '../utils/security';
 import { 
   isNotificationSupported, getNotificationPermission, requestNotificationPermission, 
   sendTestNotification 
@@ -16,6 +17,8 @@ import { ActionList, ActionListItem } from './ui/ActionList';
 interface Props {
   isOpen: boolean;
   settings: UserSettings;
+  plants?: Plant[];
+  diaries?: DiaryEntry[];
   onClose: () => void;
   onUpdateSettings: (newSettings: Partial<UserSettings>) => void;
   onDataReload: (feedbackMessage?: string, type?: 'success' | 'info' | 'error') => void;
@@ -24,6 +27,8 @@ interface Props {
 export const SettingsModal: React.FC<Props> = ({
   isOpen,
   settings,
+  plants,
+  diaries,
   onClose,
   onUpdateSettings,
   onDataReload,
@@ -128,7 +133,7 @@ export const SettingsModal: React.FC<Props> = ({
   };
 
   const handleExport = () => {
-    const dataStr = exportBackupData();
+    const dataStr = exportBackupData(plants, diaries, settings);
     const blob = new Blob([dataStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -167,6 +172,8 @@ export const SettingsModal: React.FC<Props> = ({
     }
   };
 
+  const isDev = isDeveloperAccount(userName) || isDeveloperAccount(settings.userName);
+
   const handleExecuteClearAll = () => {
     clearAllData();
     onDataReload('모든 식물 데이터가 삭제되었습니다.', 'info');
@@ -179,6 +186,14 @@ export const SettingsModal: React.FC<Props> = ({
   const handleExecuteFactoryReset = () => {
     resetToFactoryState();
     onDataReload('초기 샘플 데이터로 복원되었습니다.', 'success');
+    setStorageStats(getStorageStats());
+    setShowFactoryResetConfirm(false);
+    onClose();
+  };
+
+  const handleExecuteWipeAll = () => {
+    wipeAllUserData();
+    onDataReload('앱의 모든 데이터와 설정이 완전히 초기화되었습니다.', 'info');
     setStorageStats(getStorageStats());
     setShowFactoryResetConfirm(false);
     onClose();
@@ -199,11 +214,11 @@ export const SettingsModal: React.FC<Props> = ({
       subtitle="웹 브라우저 로컬 저장소 기반"
       maxWidth="lg"
     >
-      <div className="bg-[#F2F2F7]">
+      <div className="bg-system-bg">
         {/* Feedback banners */}
         {syncFeedback && (
-          <div className="px-5 py-2.5 bg-emerald-50 border-b border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
-            <Check className="w-4 h-4 text-[#316E36] shrink-0" />
+          <div className="px-5 py-2.5 bg-plant-bg-subtle border-b border-plant-border-subtle text-plant-primary-dark text-xs font-semibold flex items-center gap-2">
+            <Check className="w-4 h-4 text-plant-primary shrink-0" />
             <span>{syncFeedback}</span>
           </div>
         )}
@@ -234,7 +249,7 @@ export const SettingsModal: React.FC<Props> = ({
                   onChange={(e) => setUserName(e.target.value)}
                   onBlur={handleSaveUserName}
                   placeholder="식집사 이름을 입력하세요"
-                  className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-sm font-bold text-gray-800 focus:border-[#316E36] focus:outline-none"
+                  className="w-full px-3 py-2 bg-white rounded-xl border border-gray-200 text-sm font-bold text-gray-800 focus:border-plant-primary focus:outline-none"
                 />
               </div>
             </div>
@@ -257,7 +272,7 @@ export const SettingsModal: React.FC<Props> = ({
                     key={loc}
                     className="group bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-gray-800 flex items-center gap-2 transition-colors"
                   >
-                    <MapPin className="w-3.5 h-3.5 text-[#316E36] shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-plant-primary shrink-0" />
                     <span>{loc}</span>
                     <button
                       type="button"
@@ -284,13 +299,13 @@ export const SettingsModal: React.FC<Props> = ({
                     }
                   }}
                   placeholder="새 장소 이름 입력 (예: 침실, 서재, 주방)"
-                  className="flex-1 px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold text-gray-800 focus:border-[#316E36] focus:outline-none"
+                  className="flex-1 px-3 py-2 bg-white rounded-xl border border-gray-200 text-xs font-semibold text-gray-800 focus:border-plant-primary focus:outline-none"
                 />
                 <button
                   type="button"
                   onClick={handleAddLocation}
                   disabled={!newLocationInput.trim()}
-                  className="px-3.5 py-2 bg-[#316E36] hover:bg-[#27592b] active:scale-[0.98] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
+                  className="px-3.5 py-2 bg-plant-primary hover:bg-plant-primary-dark active:scale-[0.98] disabled:opacity-40 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer whitespace-nowrap"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>장소 추가</span>
@@ -308,7 +323,7 @@ export const SettingsModal: React.FC<Props> = ({
               <div className="flex items-start gap-3">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 border ${
                   notificationPerm === 'granted'
-                    ? 'bg-sky-50 border-sky-200 text-sky-600'
+                    ? 'bg-water-bg border-water-border text-water-primary'
                     : 'bg-gray-50 border-gray-200 text-gray-400'
                 }`}>
                   <BellRing className="w-5 h-5" />
@@ -317,11 +332,11 @@ export const SettingsModal: React.FC<Props> = ({
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="text-xs font-bold text-gray-900">물주기 D-Day 알림 받기</h4>
                     {notificationPerm === 'granted' ? (
-                      <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-[#316E36] px-1.5 py-0.5 rounded-md font-bold shrink-0">
+                      <span className="text-[10px] bg-plant-bg-subtle border border-plant-border-subtle text-plant-primary px-1.5 py-0.5 rounded-md font-bold shrink-0">
                         알림 켜짐
                       </span>
                     ) : notificationPerm === 'denied' ? (
-                      <span className="text-[10px] bg-rose-50 border border-rose-200 text-rose-600 px-1.5 py-0.5 rounded-md font-bold shrink-0">
+                      <span className="text-[10px] bg-danger-bg border border-danger-border text-danger-primary px-1.5 py-0.5 rounded-md font-bold shrink-0">
                         알림 차단됨
                       </span>
                     ) : (
@@ -344,13 +359,13 @@ export const SettingsModal: React.FC<Props> = ({
                       id="request-notif-permission-btn"
                       type="button"
                       onClick={handleRequestNotification}
-                      className="flex-1 py-2.5 px-3 bg-[#316E36] hover:bg-[#27592b] text-white text-xs font-bold rounded-xl border border-[#27592b] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                      className="flex-1 py-2.5 px-3 bg-plant-primary hover:bg-plant-primary-dark text-white text-xs font-bold rounded-xl border border-plant-primary-dark transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
                     >
                       <Bell className="w-3.5 h-3.5 shrink-0" />
                       <span>알림 허용하기</span>
                     </button>
                   ) : (
-                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-emerald-50/70 border border-emerald-200 rounded-xl text-xs font-semibold text-[#316E36]">
+                    <div className="flex-1 flex items-center justify-between px-3 py-2 bg-plant-bg-subtle/70 border border-plant-border-subtle rounded-xl text-xs font-semibold text-plant-primary">
                       <span className="flex items-center gap-1.5">
                         <Check className="w-3.5 h-3.5" />
                         <span>알림 수신 대기 중</span>
@@ -360,7 +375,7 @@ export const SettingsModal: React.FC<Props> = ({
                         onClick={() => handleTogglePush(!enablePush)}
                         className={`text-[11px] px-2 py-0.5 rounded-md border font-bold transition-colors cursor-pointer ${
                           enablePush
-                            ? 'bg-white text-[#316E36] border-emerald-300'
+                            ? 'bg-white text-plant-primary border-plant-border-subtle'
                             : 'bg-gray-200 text-gray-600 border-gray-300'
                         }`}
                       >
@@ -400,13 +415,13 @@ export const SettingsModal: React.FC<Props> = ({
             </span>
             <div className="bg-white rounded-xl p-4 border border-gray-200 space-y-3.5">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 text-[#316E36] flex items-center justify-center shrink-0 mt-0.5">
+                <div className="w-10 h-10 rounded-xl bg-plant-bg-subtle border border-plant-border-subtle text-plant-primary flex items-center justify-center shrink-0 mt-0.5">
                   <Database className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <h4 className="text-xs font-bold text-gray-900">내 기기 안전 저장</h4>
-                    <span className="text-[10px] bg-emerald-50 border border-emerald-200 text-[#316E36] px-1.5 py-0.5 rounded-md font-bold shrink-0">
+                    <span className="text-[10px] bg-plant-bg-subtle border border-plant-border-subtle text-plant-primary px-1.5 py-0.5 rounded-md font-bold shrink-0">
                       실시간 자동 저장
                     </span>
                   </div>
@@ -457,10 +472,10 @@ export const SettingsModal: React.FC<Props> = ({
               <ActionListItem
                 id="export-backup-btn"
                 icon={<Download className="w-4 h-4" />}
-                iconBgColor="bg-emerald-50 text-[#316E36]"
+                iconBgColor="bg-plant-bg-subtle text-plant-primary"
                 title="내 식물 데이터 파일로 백업하기"
                 badge="파일 다운로드"
-                badgeColor="bg-emerald-50 text-[#316E36] border border-emerald-200"
+                badgeColor="bg-plant-bg-subtle text-plant-primary border border-plant-border-subtle"
                 onClick={handleExport}
               />
 
@@ -515,46 +530,89 @@ export const SettingsModal: React.FC<Props> = ({
                 }
               />
 
-              <ActionListItem
-                id="factory-reset-btn"
-                variant="warning"
-                icon={<RotateCcw className="w-4 h-4" />}
-                iconBgColor="bg-amber-50 text-amber-600"
-                title="초기 상태로 되돌리기 (샘플 데이터 다시 불러오기)"
-                badge="초기화"
-                badgeColor="bg-amber-100 text-amber-800"
-                onClick={() => {
-                  setShowFactoryResetConfirm(!showFactoryResetConfirm);
-                  setShowClearConfirm(false);
-                }}
-                expandedContent={
-                  showFactoryResetConfirm ? (
-                    <div className="p-3 my-1 bg-amber-50 border border-amber-200 rounded-xl space-y-2.5">
-                      <div className="flex items-start gap-2 text-xs font-semibold text-amber-950">
-                        <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                        <span>식집사 닉네임과 환경 설정이 초기화되며 기본 샘플 식물로 재구성됩니다.</span>
+              {isDev ? (
+                <ActionListItem
+                  id="factory-reset-btn"
+                  variant="warning"
+                  icon={<RotateCcw className="w-4 h-4" />}
+                  iconBgColor="bg-amber-50 text-amber-600"
+                  title="초기 상태로 되돌리기 (샘플 데이터 다시 불러오기)"
+                  badge="샘플 복원"
+                  badgeColor="bg-amber-100 text-amber-800 border border-amber-200"
+                  onClick={() => {
+                    setShowFactoryResetConfirm(!showFactoryResetConfirm);
+                    setShowClearConfirm(false);
+                  }}
+                  expandedContent={
+                    showFactoryResetConfirm ? (
+                      <div className="p-3 my-1 bg-amber-50 border border-amber-200 rounded-xl space-y-2.5">
+                        <div className="flex items-start gap-2 text-xs font-semibold text-amber-950">
+                          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                          <span>식물 데이터와 성장 일기가 초기 샘플 데이터로 복원됩니다.</span>
+                        </div>
+                        <div className="flex items-center gap-2 justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setShowFactoryResetConfirm(false)}
+                            className="px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap cursor-pointer"
+                          >
+                            취소
+                          </button>
+                          <button
+                            id="confirm-factory-reset-btn"
+                            type="button"
+                            onClick={handleExecuteFactoryReset}
+                            className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all whitespace-nowrap shadow-xs cursor-pointer"
+                          >
+                            샘플 데이터로 복원
+                          </button>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-2 justify-end pt-1">
-                        <button
-                          type="button"
-                          onClick={() => setShowFactoryResetConfirm(false)}
-                          className="px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap cursor-pointer"
-                        >
-                          취소
-                        </button>
-                        <button
-                          id="confirm-factory-reset-btn"
-                          type="button"
-                          onClick={handleExecuteFactoryReset}
-                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all whitespace-nowrap shadow-xs cursor-pointer"
-                        >
-                          처음 상태로 복원
-                        </button>
+                    ) : null
+                  }
+                />
+              ) : (
+                <ActionListItem
+                  id="wipe-all-data-btn"
+                  variant="danger"
+                  icon={<RotateCcw className="w-4 h-4" />}
+                  iconBgColor="bg-rose-50 text-rose-600"
+                  title="앱 데이터 초기화"
+                  badge="전체 초기화"
+                  badgeColor="bg-rose-100 text-rose-800 border border-rose-200"
+                  onClick={() => {
+                    setShowFactoryResetConfirm(!showFactoryResetConfirm);
+                    setShowClearConfirm(false);
+                  }}
+                  expandedContent={
+                    showFactoryResetConfirm ? (
+                      <div className="p-3 my-1 bg-rose-50 border border-rose-200 rounded-xl space-y-2.5">
+                        <div className="flex items-start gap-2 text-xs font-semibold text-rose-950">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                          <span>식집사 정보(닉네임, 장소), 등록된 모든 식물, 성장 일기 등 앱 내 모든 데이터가 완전히 삭제되고 처음 상태로 초기화됩니다.</span>
+                        </div>
+                        <div className="flex items-center gap-2 justify-end pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setShowFactoryResetConfirm(false)}
+                            className="px-3 py-1.5 bg-white rounded-lg border border-gray-200 text-xs font-medium text-gray-700 hover:bg-gray-50 whitespace-nowrap cursor-pointer"
+                          >
+                            취소
+                          </button>
+                          <button
+                            id="confirm-wipe-all-btn"
+                            type="button"
+                            onClick={handleExecuteWipeAll}
+                            className="px-3 py-1.5 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-lg text-xs font-bold transition-all whitespace-nowrap shadow-xs cursor-pointer"
+                          >
+                            모든 데이터 완전 삭제
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ) : null
-                }
-              />
+                    ) : null
+                  }
+                />
+              )}
             </ActionList>
           </div>
 
