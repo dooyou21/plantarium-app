@@ -340,6 +340,7 @@ export default function App() {
   ) => {
     if (plantToEdit) {
       // Edit mode
+      const plantName = plantData.name || '식물';
       setPlants((prev) =>
         prev.map((p) =>
           p.id === plantToEdit.id
@@ -354,8 +355,10 @@ export default function App() {
         )
       );
       setPlantToEdit(null);
+      triggerToast(`'${plantName}'의 정보가 수정되었습니다.`, 'success', '식물 정보 수정');
     } else {
       // Add new
+      const plantName = plantData.name || '식물';
       const newPlant: Plant = {
         ...plantData,
         id: `plant-${Date.now()}`,
@@ -363,6 +366,7 @@ export default function App() {
         wateringHistory: [plantData.lastWateredDate],
       };
       setPlants((prev) => [newPlant, ...prev]);
+      triggerToast(`'${plantName}'이(가) 내 식물에 등록되었습니다!`, 'success', '새 식물 추가');
     }
   };
 
