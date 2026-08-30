@@ -48,39 +48,45 @@ export const PlantFormSheet: React.FC<Props> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const autocompleteRef = useRef<HTMLDivElement>(null);
 
+  const prevIsOpenRef = useRef(false);
+
   useEffect(() => {
-    setShowPresetPicker(false);
-    setShowDeleteConfirm(false);
-    setIsAddingCustomLoc(false);
-    setNewLocInput('');
-    setAppliedPresetMessage(null);
-    if (plantToEdit) {
-      setName(plantToEdit.name);
-      setSpecies(plantToEdit.species || '');
-      setWateringCycle(plantToEdit.wateringCycle || 10);
-      setLastWateredDate(plantToEdit.lastWateredDate || getTodayString());
-      setLastFertilizedDate(plantToEdit.lastFertilizedDate || '');
-      setAdoptedDate(plantToEdit.adoptedDate || getTodayString());
-      setLocation(plantToEdit.location || locations[0] || '거실');
-      setImageUrl(plantToEdit.imageUrl || PLANT_PRESET_IMAGES[0].url);
-      setSunlight(plantToEdit.sunlight || 'indirect');
-      setVentilation(plantToEdit.ventilation || 'normal');
-      setNotes(plantToEdit.notes || '');
-    } else {
-      // Default reset
-      setName('');
-      setSpecies('');
-      setWateringCycle(10);
-      setLastWateredDate(getTodayString());
-      setLastFertilizedDate('');
-      setAdoptedDate(getTodayString());
-      setLocation(locations[0] || '거실');
-      setImageUrl(PLANT_PRESET_IMAGES[0].url);
-      setSunlight('indirect');
-      setVentilation('normal');
-      setNotes('');
+    // Only initialize form fields when the sheet opens or when plantToEdit changes
+    if (isOpen && (!prevIsOpenRef.current || plantToEdit)) {
+      setShowPresetPicker(false);
+      setShowDeleteConfirm(false);
+      setIsAddingCustomLoc(false);
+      setNewLocInput('');
+      setAppliedPresetMessage(null);
+      if (plantToEdit) {
+        setName(plantToEdit.name);
+        setSpecies(plantToEdit.species || '');
+        setWateringCycle(plantToEdit.wateringCycle || 10);
+        setLastWateredDate(plantToEdit.lastWateredDate || getTodayString());
+        setLastFertilizedDate(plantToEdit.lastFertilizedDate || '');
+        setAdoptedDate(plantToEdit.adoptedDate || getTodayString());
+        setLocation(plantToEdit.location || locations[0] || '거실');
+        setImageUrl(plantToEdit.imageUrl || PLANT_PRESET_IMAGES[0].url);
+        setSunlight(plantToEdit.sunlight || 'indirect');
+        setVentilation(plantToEdit.ventilation || 'normal');
+        setNotes(plantToEdit.notes || '');
+      } else {
+        // Default reset for new plant registration
+        setName('');
+        setSpecies('');
+        setWateringCycle(10);
+        setLastWateredDate(getTodayString());
+        setLastFertilizedDate('');
+        setAdoptedDate(getTodayString());
+        setLocation(locations[0] || '거실');
+        setImageUrl(PLANT_PRESET_IMAGES[0].url);
+        setSunlight('indirect');
+        setVentilation('normal');
+        setNotes('');
+      }
     }
-  }, [plantToEdit, isOpen, locations]);
+    prevIsOpenRef.current = isOpen;
+  }, [isOpen, plantToEdit]);
 
   // Click outside autocomplete dropdown
   useEffect(() => {

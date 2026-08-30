@@ -4,6 +4,7 @@ import {
   loadPlants, savePlants, loadDiaries, saveDiaries, 
   loadUserSettings, saveUserSettings 
 } from './services/storage';
+import { DEFAULT_USER_SETTINGS } from './data/initialData';
 import { 
   getDaysSinceWatered, getUrgencyRatio, getTodayString, 
   getDaysTogether, formatKoreanDate 
@@ -19,17 +20,18 @@ import { Droplets, Plus, Sparkles, Undo2, Leaf, Search, Filter, Check, AlertCirc
 import { motion, AnimatePresence } from 'motion/react';
 
 export default function App() {
-  // Application Data States
-  const [plants, setPlants] = useState<Plant[]>(() => loadPlants());
-  const [diaries, setDiaries] = useState<DiaryEntry[]>(() => loadDiaries());
-  const [settings, setSettings] = useState<UserSettings>(() => loadUserSettings());
+  // Application Data States (IndexedDB initialized)
+  const [isDataLoaded, setIsDataLoaded] = useState(false);
+  const [plants, setPlants] = useState<Plant[]>([]);
+  const [diaries, setDiaries] = useState<DiaryEntry[]>([]);
+  const [settings, setSettings] = useState<UserSettings>(DEFAULT_USER_SETTINGS);
 
   // Navigation & View States
   const [selectedPlantId, setSelectedPlantId] = useState<string | null>(null);
   const [isPlantFormOpen, setIsPlantFormOpen] = useState(false);
   const [plantToEdit, setPlantToEdit] = useState<Plant | null>(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
-  const [showIntroModal, setShowIntroModal] = useState(!settings.hasCompletedOnboarding);
+  const [showIntroModal, setShowIntroModal] = useState(false);
 
   // Search, Filter, Sort States
   const [searchQuery, setSearchQuery] = useState('');
@@ -87,18 +89,48 @@ export default function App() {
     plantName: string;
   } | null>(null);
 
-  // Sync to storage on state change
+  // Initial load from IndexedDB
   useEffect(() => {
+    let isMounted = true;
+    async function initData() {
+      try {
+        const [loadedSettings, loadedPlants, loadedDiaries] = await Promise.all([
+          loadUserSettings(),
+          loadPlants(),
+          loadDiaries(),
+        ]);
+        if (!isMounted) return;
+        setSettings(loadedSettings);
+        setPlants(loadedPlants);
+        setDiaries(loadedDiaries);
+        setShowIntroModal(!loadedSettings.hasCompletedOnboarding);
+        setIsDataLoaded(true);
+      } catch (err) {
+        console.error('Failed to initialize app data from IndexedDB:', err);
+        if (isMounted) setIsDataLoaded(true);
+      }
+    }
+    initData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sync to IndexedDB on state change
+  useEffect(() => {
+    if (!isDataLoaded) return;
     savePlants(plants);
-  }, [plants]);
+  }, [plants, isDataLoaded]);
 
   useEffect(() => {
+    if (!isDataLoaded) return;
     saveDiaries(diaries);
-  }, [diaries]);
+  }, [diaries, isDataLoaded]);
 
   useEffect(() => {
+    if (!isDataLoaded) return;
     saveUserSettings(settings);
-  }, [settings]);
+  }, [settings, isDataLoaded]);
 
   // Service Worker Registration & Notification Handling
   useEffect(() => {
@@ -470,26 +502,32 @@ export default function App() {
     triggerToast('성장 기록이 수정되었습니다.', 'success');
   };
 
-  const handleDataReload = (feedbackMessage?: string, type: 'success' | 'info' | 'error' = 'success') => {
-    const loadedPlants = loadPlants();
-    const loadedDiaries = loadDiaries();
-    const loadedSettings = loadUserSettings();
-    setPlants(loadedPlants);
-    setDiaries(loadedDiaries);
-    setSettings(loadedSettings);
-    if (!loadedSettings.hasCompletedOnboarding) {
-      setShowIntroModal(true);
-      setIsSettingsOpen(false);
-    }
-    if (selectedPlantId && !loadedPlants.some((p) => p.id === selectedPlantId)) {
-      setSelectedPlantId(null);
-    }
-    if (feedbackMessage) {
-      triggerToast(
-        feedbackMessage,
-        type,
-        type === 'success' ? '데이터 복원 완료' : type === 'error' ? '복원 실패' : '데이터 알림'
-      );
+  const handleDataReload = async (feedbackMessage?: string, type: 'success' | 'info' | 'error' = 'success') => {
+    try {
+      const [loadedPlants, loadedDiaries, loadedSettings] = await Promise.all([
+        loadPlants(),
+        loadDiaries(),
+        loadUserSettings(),
+      ]);
+      setPlants(loadedPlants);
+      setDiaries(loadedDiaries);
+      setSettings(loadedSettings);
+      if (!loadedSettings.hasCompletedOnboarding) {
+        setShowIntroModal(true);
+        setIsSettingsOpen(false);
+      }
+      if (selectedPlantId && !loadedPlants.some((p) => p.id === selectedPlantId)) {
+        setSelectedPlantId(null);
+      }
+      if (feedbackMessage) {
+        triggerToast(
+          feedbackMessage,
+          type,
+          type === 'success' ? '데이터 복원 완료' : type === 'error' ? '복원 실패' : '데이터 알림'
+        );
+      }
+    } catch (err) {
+      console.error('Failed to reload data from IndexedDB:', err);
     }
   };
 

@@ -38,7 +38,17 @@ export const SettingsModal: React.FC<Props> = ({
   const [newLocationInput, setNewLocationInput] = useState('');
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [storageStats, setStorageStats] = useState(getStorageStats());
+  const [storageStats, setStorageStats] = useState<{
+    plantCount: number;
+    diaryCount: number;
+    estimatedSizeKb: number;
+    lastSavedAt: string | null;
+  }>({
+    plantCount: 0,
+    diaryCount: 0,
+    estimatedSizeKb: 0,
+    lastSavedAt: null,
+  });
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showFactoryResetConfirm, setShowFactoryResetConfirm] = useState(false);
   const [notificationPerm, setNotificationPerm] = useState<NotificationPermission | 'unsupported'>('default');
@@ -49,7 +59,7 @@ export const SettingsModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setStorageStats(getStorageStats());
+      getStorageStats().then(setStorageStats);
       setUserName(settings.userName || '초록집사');
       setLocations(settings.locations && settings.locations.length > 0 ? settings.locations : ['거실', '베란다']);
       setNewLocationInput('');
@@ -132,37 +142,46 @@ export const SettingsModal: React.FC<Props> = ({
     onUpdateSettings({ enablePushNotifications: enabled });
   };
 
-  const handleExport = () => {
-    const dataStr = exportBackupData(plants, diaries, settings);
-    const blob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `plantarium_backup_${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
-    setSyncFeedback('JSON 백업 파일이 다운로드되었습니다.');
-    setTimeout(() => setSyncFeedback(null), 3000);
+  const handleExport = async () => {
+    try {
+      const dataStr = await exportBackupData(plants, diaries, settings);
+      const blob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `plantarium_backup_${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      setSyncFeedback('JSON 백업 파일이 다운로드되었습니다.');
+      setTimeout(() => setSyncFeedback(null), 3000);
+    } catch (err) {
+      console.error('Export failed:', err);
+    }
   };
 
   const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
-      reader.onload = (event) => {
+      reader.onload = async (event) => {
         const content = event.target?.result as string;
         if (content) {
-          const res = importBackupData(content);
-          if (res.success) {
-            const feedbackMsg = res.message || '백업 파일로부터 식물 데이터가 성공적으로 복원되었습니다.';
-            onDataReload(feedbackMsg, 'success');
-            setStorageStats(getStorageStats());
-            setSyncFeedback(feedbackMsg);
-            setTimeout(() => setSyncFeedback(null), 4500);
-          } else {
-            setErrorMessage(res.message);
-            onDataReload(res.message, 'error');
-            setTimeout(() => setErrorMessage(null), 4500);
+          try {
+            const res = await importBackupData(content);
+            if (res.success) {
+              const feedbackMsg = res.message || '백업 파일로부터 식물 데이터가 성공적으로 복원되었습니다.';
+              onDataReload(feedbackMsg, 'success');
+              const stats = await getStorageStats();
+              setStorageStats(stats);
+              setSyncFeedback(feedbackMsg);
+              setTimeout(() => setSyncFeedback(null), 4500);
+            } else {
+              setErrorMessage(res.message);
+              onDataReload(res.message, 'error');
+              setTimeout(() => setErrorMessage(null), 4500);
+            }
+          } catch (err) {
+            console.error('Import failed:', err);
           }
         }
       };
@@ -174,27 +193,30 @@ export const SettingsModal: React.FC<Props> = ({
 
   const isDev = isDeveloperAccount(userName) || isDeveloperAccount(settings.userName);
 
-  const handleExecuteClearAll = () => {
-    clearAllData();
+  const handleExecuteClearAll = async () => {
+    await clearAllData();
     onDataReload('모든 식물 데이터가 삭제되었습니다.', 'info');
-    setStorageStats(getStorageStats());
+    const stats = await getStorageStats();
+    setStorageStats(stats);
     setShowClearConfirm(false);
     setSyncFeedback('모든 식물 데이터가 삭제되었습니다.');
     setTimeout(() => setSyncFeedback(null), 3000);
   };
 
-  const handleExecuteFactoryReset = () => {
-    resetToFactoryState();
+  const handleExecuteFactoryReset = async () => {
+    await resetToFactoryState();
     onDataReload('초기 샘플 데이터로 복원되었습니다.', 'success');
-    setStorageStats(getStorageStats());
+    const stats = await getStorageStats();
+    setStorageStats(stats);
     setShowFactoryResetConfirm(false);
     onClose();
   };
 
-  const handleExecuteWipeAll = () => {
-    wipeAllUserData();
+  const handleExecuteWipeAll = async () => {
+    await wipeAllUserData();
     onDataReload('앱의 모든 데이터와 설정이 완전히 초기화되었습니다.', 'info');
-    setStorageStats(getStorageStats());
+    const stats = await getStorageStats();
+    setStorageStats(stats);
     setShowFactoryResetConfirm(false);
     onClose();
   };
