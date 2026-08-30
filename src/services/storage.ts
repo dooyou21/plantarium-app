@@ -11,11 +11,6 @@ const KEY_DIARIES = 'diaries';
 const KEY_SETTINGS = 'settings';
 const KEY_INITIALIZED = 'storage_initialized_v1';
 
-// Legacy LocalStorage Keys for One-Time Migration
-const LEGACY_PLANTS_KEY = 'plantarium_plants_v1';
-const LEGACY_DIARIES_KEY = 'plantarium_diaries_v1';
-const LEGACY_SETTINGS_KEY = 'plantarium_settings_v1';
-
 /**
  * Open or upgrade the IndexedDB database instance
  */
@@ -28,7 +23,7 @@ function openDatabase(): Promise<IDBDatabase> {
 
     const request = indexedDB.open(DB_NAME, DB_VERSION);
 
-    request.onupgradeneeded = (event) => {
+    request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE_NAME)) {
         db.createObjectStore(STORE_NAME);
@@ -98,69 +93,32 @@ export async function setToDB<T>(key: string, value: T): Promise<void> {
 }
 
 /**
- * One-time check and migration from legacy LocalStorage to IndexedDB
+ * Initialize default data if IndexedDB is empty on first run
  */
-async function ensureMigrated(): Promise<void> {
+async function ensureDatabaseInitialized(): Promise<void> {
   try {
     const isInit = await getFromDB<boolean>(KEY_INITIALIZED);
     if (isInit) return;
 
-    // Check if user had existing data in localStorage
-    let migratedPlants: Plant[] | null = null;
-    let migratedDiaries: DiaryEntry[] | null = null;
-    let migratedSettings: UserSettings | null = null;
-
-    try {
-      const rawPlants = localStorage.getItem(LEGACY_PLANTS_KEY);
-      if (rawPlants) {
-        const parsed = JSON.parse(rawPlants);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          migratedPlants = parsed;
-        }
-      }
-
-      const rawDiaries = localStorage.getItem(LEGACY_DIARIES_KEY);
-      if (rawDiaries) {
-        const parsed = JSON.parse(rawDiaries);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          migratedDiaries = parsed;
-        }
-      }
-
-      const rawSettings = localStorage.getItem(LEGACY_SETTINGS_KEY);
-      if (rawSettings) {
-        const parsed = JSON.parse(rawSettings);
-        if (parsed && typeof parsed === 'object') {
-          migratedSettings = parsed;
-        }
-      }
-    } catch (parseErr) {
-      console.warn('Legacy localStorage parsing error, starting fresh in IndexedDB', parseErr);
-    }
-
-    // Save initial or migrated data into IndexedDB
-    await setToDB(KEY_PLANTS, migratedPlants || INITIAL_PLANTS);
-    await setToDB(KEY_DIARIES, migratedDiaries || INITIAL_DIARIES);
-    await setToDB(KEY_SETTINGS, migratedSettings || DEFAULT_USER_SETTINGS);
+    await setToDB(KEY_PLANTS, INITIAL_PLANTS);
+    await setToDB(KEY_DIARIES, INITIAL_DIARIES);
+    await setToDB(KEY_SETTINGS, DEFAULT_USER_SETTINGS);
     await setToDB(KEY_INITIALIZED, true);
-
-    console.info('IndexedDB initialization and migration completed successfully.');
   } catch (err) {
-    console.error('Migration to IndexedDB failed:', err);
+    console.error('Failed to initialize IndexedDB:', err);
   }
 }
 
 /**
- * Load Plants from IndexedDB (with migration & fallback)
+ * Load Plants from IndexedDB
  */
 export async function loadPlants(): Promise<Plant[]> {
   try {
-    await ensureMigrated();
+    await ensureDatabaseInitialized();
     const data = await getFromDB<Plant[]>(KEY_PLANTS);
     if (Array.isArray(data)) {
       return data;
     }
-    // If not found, save initial
     await setToDB(KEY_PLANTS, INITIAL_PLANTS);
     return INITIAL_PLANTS;
   } catch (err) {
@@ -185,7 +143,7 @@ export async function savePlants(plants: Plant[]): Promise<void> {
  */
 export async function loadDiaries(): Promise<DiaryEntry[]> {
   try {
-    await ensureMigrated();
+    await ensureDatabaseInitialized();
     const data = await getFromDB<DiaryEntry[]>(KEY_DIARIES);
     if (Array.isArray(data)) {
       return data;
@@ -214,7 +172,7 @@ export async function saveDiaries(diaries: DiaryEntry[]): Promise<void> {
  */
 export async function loadUserSettings(): Promise<UserSettings> {
   try {
-    await ensureMigrated();
+    await ensureDatabaseInitialized();
     const data = await getFromDB<UserSettings>(KEY_SETTINGS);
     if (data && typeof data === 'object') {
       return {
@@ -262,8 +220,7 @@ export async function exportBackupData(
   await saveUserSettings(settingsToExport);
 
   const data = {
-    version: '2.0',
-    app: 'Plantarium Web App (IndexedDB)',
+    app: 'Plantarium Web App',
     exportedAt: new Date().toISOString(),
     plants: plantsToExport,
     diaries: diariesToExport,
@@ -313,7 +270,7 @@ export async function importBackupData(jsonString: string): Promise<{
       plantCount,
       diaryCount,
     };
-  } catch (err) {
+  } catch {
     return { success: false, message: 'JSON 파일 형식이 잘못되었거나 손상된 파일입니다.' };
   }
 }
@@ -335,7 +292,7 @@ export async function getStorageStats(): Promise<{
     const pStr = JSON.stringify(plants);
     const dStr = JSON.stringify(diaries);
     const sStr = JSON.stringify(settings);
-    const totalBytes = (pStr.length + dStr.length + sStr.length) * 2; // Approximate UTF-16 in memory
+    const totalBytes = (pStr.length + dStr.length + sStr.length) * 2;
 
     return {
       plantCount: plants.length,
