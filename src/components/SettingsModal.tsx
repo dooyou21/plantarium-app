@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Database, Download, Upload, Trash2, RotateCcw, Check, 
   Thermometer, Droplets, User, AlertCircle, Bell, BellRing, Send, Sparkles, Smartphone,
-  MapPin, Plus, X
+  MapPin, Plus, X, HeartHandshake, ExternalLink, Copy, Heart, Mail
 } from 'lucide-react';
 import { Plant, DiaryEntry, UserSettings } from '../types';
 import { exportBackupData, importBackupData, clearAllData, resetToFactoryState, wipeAllUserData, getStorageStats } from '../services/storage';
@@ -55,7 +55,20 @@ export const SettingsModal: React.FC<Props> = ({
   const [isSendingTestNotif, setIsSendingTestNotif] = useState(false);
   const [notificationTime, setNotificationTime] = useState(settings.notificationTime || '09:00');
   const [enablePush, setEnablePush] = useState(settings.enablePushNotifications !== false);
+  const [isCopiedDonationLink, setIsCopiedDonationLink] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const CTEE_DONATION_URL = 'https://ctee.kr/place/dooyou21';
+
+  const handleCopyDonationLink = async () => {
+    try {
+      await navigator.clipboard.writeText(CTEE_DONATION_URL);
+      setIsCopiedDonationLink(true);
+      setTimeout(() => setIsCopiedDonationLink(false), 2500);
+    } catch {
+      // Fallback
+    }
+  };
 
   useEffect(() => {
     if (isOpen) {
@@ -638,10 +651,74 @@ export const SettingsModal: React.FC<Props> = ({
             </ActionList>
           </div>
 
-          {/* App Info Footer */}
+          {/* CTEE Donation / Creator Support Section */}
+          <div className="bg-gradient-to-br from-emerald-50/70 via-teal-50/50 to-amber-50/50 rounded-2xl p-4 sm:p-5 border border-emerald-200/80 shadow-2xs space-y-3.5 min-w-0">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100/90 text-emerald-700 flex items-center justify-center shrink-0 shadow-2xs">
+                <HeartHandshake className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <h4 className="text-sm font-bold text-gray-900 flex items-center gap-1.5 truncate">
+                  <span>개발자 응원하기</span>
+                  <Heart className="w-3.5 h-3.5 text-rose-500 fill-rose-500 shrink-0 inline" />
+                </h4>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-600 leading-relaxed break-keep">
+              플랜타리움은 광고 없이 쾌적하고 편리한 식집사 생활을 위해 지속적으로 업데이트되고 있습니다. 서비스가 도움이 되셨다면 따뜻한 응원으로 플랜타리움의 성장을 함께해주세요!
+            </p>
+
+            <div className="flex flex-col sm:flex-row gap-2 pt-1 min-w-0">
+              <a
+                id="ctee-donation-link-btn"
+                href={CTEE_DONATION_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 bg-plant-primary hover:bg-plant-primary-dark active:scale-[0.99] text-white font-bold py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 text-xs sm:text-sm shadow-xs transition-all cursor-pointer whitespace-nowrap"
+              >
+                <span>CTEE로 후원하기</span>
+                <ExternalLink className="w-3.5 h-3.5 shrink-0 opacity-80" />
+              </a>
+
+              <button
+                id="copy-donation-link-btn"
+                type="button"
+                onClick={handleCopyDonationLink}
+                className={`px-3 py-2.5 rounded-xl border text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 whitespace-nowrap ${
+                  isCopiedDonationLink
+                    ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                    : 'bg-white/90 hover:bg-white border-gray-200 text-gray-700'
+                }`}
+                title="후원 링크 복사"
+              >
+                {isCopiedDonationLink ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>링크 복사됨!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5 text-gray-500 shrink-0" />
+                    <span>링크 복사</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Contact / App Info Footer */}
           <div className="text-center text-xs text-gray-400 pt-2 space-y-1 break-keep">
             <p className="font-semibold text-gray-500 whitespace-nowrap">Plantarium Web App v1.0</p>
-            <p className="text-[11px] whitespace-nowrap">D+ 일수 중심 미니멀 식물 아카이브</p>
+            <div>
+              <a
+                id="contact-email-link"
+                href="mailto:cubeclock94@gmail.com"
+                className="text-[11px] text-gray-400 hover:text-gray-600 hover:underline transition-colors whitespace-nowrap inline-block"
+              >
+                cubeclock94@gmail.com
+              </a>
+            </div>
           </div>
         </div>
       </div>

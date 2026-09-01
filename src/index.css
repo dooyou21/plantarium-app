@@ -118,8 +118,11 @@
   }
 
   html, body {
+    width: 100%;
+    max-width: 100%;
     overflow-x: hidden;
     overscroll-behavior-x: none;
+    touch-action: pan-y;
   }
 
   body {
@@ -132,11 +135,39 @@
     -webkit-tap-highlight-color: transparent;
     word-break: keep-all;
     overflow-wrap: break-word;
-    touch-action: pan-y;
   }
 
+  /* iOS WebKit Date & Form Inputs Reset to prevent width overflow and horizontal swipe */
   input, textarea, select {
     user-select: auto;
+    box-sizing: border-box;
+    max-width: 100%;
+  }
+
+  input[type="date"],
+  input[type="time"],
+  input[type="datetime-local"] {
+    display: block;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    min-height: 42px;
+  }
+
+  input[type="date"]::-webkit-date-and-time-value {
+    text-align: left;
+    min-height: 1.2em;
+    display: block;
+  }
+
+  input[type="date"]::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.6;
+    padding: 0 4px;
   }
 
   /* Soft and refined focus states for all form inputs - only border color change */

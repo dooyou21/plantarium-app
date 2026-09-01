@@ -158,11 +158,11 @@ export const AddDiaryModal: React.FC<Props> = ({
       maxWidth="lg"
       footer={footer}
     >
-      <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 break-keep">
+      <form onSubmit={handleSubmit} className="p-4 sm:p-5 space-y-4 break-keep min-w-0 w-full max-w-full overflow-x-hidden">
         {/* Care Type Selection (3 items x 2 rows) */}
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs font-semibold text-gray-700 mb-1.5 whitespace-nowrap">기록 유형 선택</label>
-          <div className="grid grid-cols-3 gap-1.5">
+          <div className="grid grid-cols-3 gap-1.5 min-w-0">
             {CARE_TYPES.map((item) => {
               const Icon = item.icon;
               const isSelected = type === item.type;
@@ -171,14 +171,14 @@ export const AddDiaryModal: React.FC<Props> = ({
                   key={item.type}
                   type="button"
                   onClick={() => setType(item.type)}
-                  className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer ${
+                  className={`flex items-center justify-center gap-1 py-1.5 px-2 rounded-lg border text-[11px] font-semibold transition-all cursor-pointer min-w-0 ${
                     isSelected
                       ? 'border-plant-primary bg-plant-primary/10 text-plant-primary shadow-2xs'
                       : 'border-gray-200 bg-white text-gray-700 hover:bg-gray-50'
                   }`}
                 >
                   <Icon className="w-3.5 h-3.5 shrink-0" />
-                  <span className="whitespace-nowrap">{item.label}</span>
+                  <span className="whitespace-nowrap truncate">{item.label}</span>
                 </button>
               );
             })}
@@ -186,14 +186,14 @@ export const AddDiaryModal: React.FC<Props> = ({
         </div>
 
         {/* Date Input */}
-        <div>
+        <div className="min-w-0">
           <label className="block text-xs font-semibold text-gray-700 mb-1 whitespace-nowrap">기록 날짜</label>
           <input
             id="diary-date-input"
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="w-full px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
+            className="w-full min-w-0 px-3 py-2 sm:px-3.5 sm:py-2.5 rounded-xl border border-gray-200 text-sm bg-white"
           />
         </div>
 
