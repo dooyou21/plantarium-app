@@ -2,14 +2,14 @@ import React, { useState, useRef, useEffect } from 'react';
 import { 
   Database, Download, Upload, Trash2, RotateCcw, Check, 
   Thermometer, Droplets, User, AlertCircle, Bell, BellRing, Send, Sparkles, Smartphone,
-  MapPin, Plus, X, HeartHandshake, ExternalLink, Copy, Heart, Mail
+  MapPin, Plus, X, HeartHandshake, ExternalLink, Copy, Heart, Mail, Clock, ChevronDown
 } from 'lucide-react';
 import { Plant, DiaryEntry, UserSettings } from '../types';
 import { exportBackupData, importBackupData, clearAllData, resetToFactoryState, wipeAllUserData, getStorageStats } from '../services/storage';
 import { isDeveloperAccount } from '../utils/security';
 import { 
   isNotificationSupported, getNotificationPermission, requestNotificationPermission, 
-  sendTestNotification 
+  sendTestNotification, subscribeToPushService, syncPushSchedule
 } from '../services/notificationService';
 import { Modal } from './ui/Modal';
 import { ActionList, ActionListItem } from './ui/ActionList';
@@ -123,7 +123,15 @@ export const SettingsModal: React.FC<Props> = ({
       enablePushNotifications: isGranted,
     });
     if (isGranted) {
-      setSyncFeedback('서비스워커 알림 권한이 허용되었습니다! 물주기 시점에 안내해 드립니다.');
+      setSyncFeedback('알림 권한이 허용되었습니다! 백그라운드 푸시 서비스를 연결합니다.');
+      try {
+        await subscribeToPushService(
+          { ...settings, hasNotificationPermission: true, enablePushNotifications: true, notificationTime },
+          plants || []
+        );
+      } catch (err) {
+        console.warn('Push subscription error on grant:', err);
+      }
     } else if (perm === 'denied') {
       setErrorMessage('브라우저에서 알림 권한이 차단되었습니다. 주소창의 사이트 설정에서 알림을 허용해주세요.');
     }
@@ -153,6 +161,65 @@ export const SettingsModal: React.FC<Props> = ({
   const handleTogglePush = (enabled: boolean) => {
     setEnablePush(enabled);
     onUpdateSettings({ enablePushNotifications: enabled });
+    syncPushSchedule(
+      { ...settings, enablePushNotifications: enabled, notificationTime },
+      plants || []
+    );
+  };
+
+  const handleUpdateNotificationTime = (newTime: string) => {
+    setNotificationTime(newTime);
+    onUpdateSettings({ notificationTime: newTime });
+    syncPushSchedule(
+      { ...settings, notificationTime: newTime, enablePushNotifications: enablePush },
+      plants || []
+    );
+    setSyncFeedback(`알림 시간이 '${newTime}'(으)로 설정되었습니다.`);
+    setTimeout(() => setSyncFeedback(null), 3000);
+  };
+
+  // Helper functions for clean 12h time formatting and manipulation
+  const parseTime24 = (timeStr: string) => {
+    const [hStr, mStr] = (timeStr || '09:00').split(':');
+    const h24 = parseInt(hStr || '9', 10);
+    const m = parseInt(mStr || '0', 10);
+    const isPM = h24 >= 12;
+    const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+    return { isPM, h12, m, h24 };
+  };
+
+  const formatTime24 = (isPM: boolean, h12: number, m: number): string => {
+    let h24 = h12;
+    if (isPM) {
+      h24 = h12 === 12 ? 12 : h12 + 12;
+    } else {
+      h24 = h12 === 12 ? 0 : h12;
+    }
+    return `${String(h24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const displayKoreanTime = (timeStr: string): string => {
+    const { isPM, h12, m } = parseTime24(timeStr);
+    const period = isPM ? '오후' : '오전';
+    return `${period} ${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  };
+
+  const handlePeriodChange = (period: 'AM' | 'PM') => {
+    const { h12, m } = parseTime24(notificationTime);
+    const newTime = formatTime24(period === 'PM', h12, m);
+    handleUpdateNotificationTime(newTime);
+  };
+
+  const handleHourChange = (newHour12: number) => {
+    const { isPM, m } = parseTime24(notificationTime);
+    const newTime = formatTime24(isPM, newHour12, m);
+    handleUpdateNotificationTime(newTime);
+  };
+
+  const handleMinuteChange = (newMinute: number) => {
+    const { isPM, h12 } = parseTime24(notificationTime);
+    const newTime = formatTime24(isPM, h12, newMinute);
+    handleUpdateNotificationTime(newTime);
   };
 
   const handleExport = async () => {
@@ -381,10 +448,158 @@ export const SettingsModal: React.FC<Props> = ({
                     )}
                   </div>
                   <p className="text-[11px] text-gray-500 break-keep leading-relaxed">
-                    물이 필요한 날 아침에 스마트폰 알림으로 잊지 않게 챙겨드립니다.
+                    물이 필요한 날 정해둔 시간에 맞춰 백그라운드 푸시 알림으로 잊지 않게 챙겨드립니다.
                   </p>
                 </div>
               </div>
+
+              {/* Notification Time Settings Card */}
+              {(() => {
+                const { isPM, h12, m } = parseTime24(notificationTime);
+                const currentFormatted = displayKoreanTime(notificationTime);
+
+                const presetOptions = [
+                  { label: '아침 8시', time: '08:00', desc: '출근 전' },
+                  { label: '오전 9시', time: '09:00', desc: '권장 시간' },
+                  { label: '오후 1시', time: '13:00', desc: '점심시간' },
+                  { label: '저녁 8시', time: '20:00', desc: '퇴근 후' },
+                ];
+
+                return (
+                  <div className="bg-gray-50/70 rounded-2xl p-4 border border-gray-200/80 space-y-3.5">
+                    {/* Header with Title & Current Time Badge */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-plant-bg-subtle border border-plant-border-subtle text-plant-primary flex items-center justify-center shadow-xs">
+                          <Clock className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <h5 className="text-xs font-bold text-gray-900">알림 받을 시간</h5>
+                          <p className="text-[11px] text-gray-400">물주기 D-Day에 알림을 전송합니다</p>
+                        </div>
+                      </div>
+
+                      {/* Prominent Current Time Display Badge */}
+                      <div className="px-3 py-1.5 bg-white border border-gray-200 rounded-xl shadow-xs text-xs font-black text-plant-primary tracking-wide flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-plant-primary animate-pulse" />
+                        <span>{currentFormatted}</span>
+                      </div>
+                    </div>
+
+                    {/* Clean & Sleek Time Selector Controls */}
+                    <div className="bg-white rounded-xl p-2.5 border border-gray-200/80 shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3">
+                      {/* AM / PM Segmented Control */}
+                      <div className="flex bg-gray-100/90 p-1 rounded-xl w-full sm:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => handlePeriodChange('AM')}
+                          className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            !isPM
+                              ? 'bg-white text-plant-primary shadow-xs font-black'
+                              : 'text-gray-500 hover:text-gray-800'
+                          }`}
+                        >
+                          오전
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handlePeriodChange('PM')}
+                          className={`flex-1 sm:flex-initial px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                            isPM
+                              ? 'bg-white text-plant-primary shadow-xs font-black'
+                              : 'text-gray-500 hover:text-gray-800'
+                          }`}
+                        >
+                          오후
+                        </button>
+                      </div>
+
+                      {/* Hour & Minute Pickers */}
+                      <div className="flex items-center gap-2 w-full sm:w-auto justify-center">
+                        {/* Hour Dropdown */}
+                        <div className="relative">
+                          <select
+                            id="notification-hour-select"
+                            value={h12}
+                            onChange={(e) => handleHourChange(Number(e.target.value))}
+                            className="appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl pl-3 pr-7 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:border-plant-primary cursor-pointer transition-colors"
+                          >
+                            {Array.from({ length: 12 }, (_, i) => i + 1).map((h) => (
+                              <option key={h} value={h}>
+                                {String(h).padStart(2, '0')}시
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+
+                        <span className="text-gray-400 font-bold text-sm">:</span>
+
+                        {/* Minute Dropdown */}
+                        <div className="relative">
+                          <select
+                            id="notification-minute-select"
+                            value={m}
+                            onChange={(e) => handleMinuteChange(Number(e.target.value))}
+                            className="appearance-none bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-xl pl-3 pr-7 py-2 text-xs font-bold text-gray-800 focus:outline-none focus:border-plant-primary cursor-pointer transition-colors"
+                          >
+                            {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((minVal) => (
+                              <option key={minVal} value={minVal}>
+                                {String(minVal).padStart(2, '0')}분
+                              </option>
+                            ))}
+                          </select>
+                          <ChevronDown className="w-3.5 h-3.5 text-gray-400 absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Quick Preset Buttons */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-gray-500">자주 쓰는 시간대</span>
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {presetOptions.map((preset) => {
+                          const isSelected = notificationTime === preset.time;
+                          return (
+                            <button
+                              key={preset.time}
+                              type="button"
+                              onClick={() => handleUpdateNotificationTime(preset.time)}
+                              className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer flex flex-col ${
+                                isSelected
+                                  ? 'bg-plant-primary text-white border-plant-primary-dark shadow-xs'
+                                  : 'bg-white text-gray-700 border-gray-200 hover:border-plant-border-subtle hover:bg-plant-bg-subtle/30'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between mb-0.5">
+                                <span className={`text-xs font-bold ${isSelected ? 'text-white' : 'text-gray-900'}`}>
+                                  {preset.label}
+                                </span>
+                                {isSelected && (
+                                  <Check className="w-3 h-3 text-white shrink-0" />
+                                )}
+                              </div>
+                              <span className={`text-[10px] ${isSelected ? 'text-white/80' : 'text-gray-400'}`}>
+                                {preset.desc}
+                              </span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {/* Information Note */}
+                    <div className="p-2.5 bg-plant-bg-subtle/50 rounded-xl border border-plant-border-subtle/70 flex items-start gap-2">
+                      <span className="text-xs">💡</span>
+                      <p className="text-[11px] text-plant-primary-dark leading-relaxed break-keep">
+                        앱을 닫아두어도 설정하신 <strong>{currentFormatted}</strong>에 맞춰 물주기가 필요한 화분이 있을 때 스마트폰과 브라우저로 백그라운드 푸시 알림을 보내드립니다.
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Action Buttons */}
               <div className="pt-2 border-t border-gray-200 space-y-2">

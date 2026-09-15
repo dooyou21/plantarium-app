@@ -1,0 +1,50 @@
+{
+  "entities": {
+    "PushSubscription": {
+      "title": "PushSubscription",
+      "description": "User push notification subscription, schedule, and monitored plants",
+      "type": "object",
+      "properties": {
+        "endpoint": {
+          "type": "string",
+          "description": "Push service endpoint URL"
+        },
+        "subscription": {
+          "type": "object",
+          "description": "Web push subscription credentials and auth keys"
+        },
+        "clientTimezone": {
+          "type": "string",
+          "description": "Client timezone e.g. Asia/Seoul"
+        },
+        "notificationTime": {
+          "type": "string",
+          "description": "Preferred notification time e.g. 09:00"
+        },
+        "enabled": {
+          "type": "boolean",
+          "description": "Whether push notification is active"
+        },
+        "lastNotifiedDate": {
+          "type": "string",
+          "description": "Last notification sent date YYYY-MM-DD"
+        },
+        "plants": {
+          "type": "array",
+          "description": "Monitored plants reminder items"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Last updated epoch timestamp in milliseconds"
+        }
+      },
+      "required": ["endpoint", "clientTimezone", "notificationTime", "enabled", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/push_subscriptions/{subscriptionId}": {
+      "schema": "PushSubscription",
+      "description": "Collection of web push notification subscriptions for scheduled plant watering reminders"
+    }
+  }
+}
