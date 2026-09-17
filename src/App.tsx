@@ -15,7 +15,7 @@ import { PlantDetailModal } from './components/PlantDetailModal';
 import { PlantFormSheet } from './components/PlantFormSheet';
 import { SettingsModal } from './components/SettingsModal';
 import { IntroPermissionModal } from './components/IntroPermissionModal';
-import { registerServiceWorker, checkPlantsAndNotify, syncPushSchedule } from './services/notificationService';
+import { registerServiceWorker, checkPlantsAndNotify, syncPushSchedule, autoReconnectPushSubscription } from './services/notificationService';
 import { Droplets, Plus, Sparkles, Undo2, Leaf, Search, Filter, Check, AlertCircle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -164,11 +164,15 @@ export default function App() {
 
   // Check and trigger notifications for overdue plants & sync push schedule
   useEffect(() => {
-    if (plants.length > 0 && settings.enablePushNotifications !== false) {
-      checkPlantsAndNotify(plants, settings);
+    if (!isDataLoaded) return;
+    if (settings.enablePushNotifications !== false) {
+      if (plants.length > 0) {
+        checkPlantsAndNotify(plants, settings);
+      }
       syncPushSchedule(settings, plants);
+      autoReconnectPushSubscription(settings, plants);
     }
-  }, [plants, settings]);
+  }, [isDataLoaded, plants, settings]);
 
   // Selected Plant Object
   const selectedPlant = useMemo(() => {

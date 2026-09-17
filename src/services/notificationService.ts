@@ -219,13 +219,17 @@ export async function syncPushSchedule(settings: UserSettings, plants: Plant[]):
 
   try {
     const reg = await navigator.serviceWorker.ready;
-    const sub = await reg.pushManager.getSubscription();
+    let sub = await reg.pushManager.getSubscription();
 
+    const isGranted = typeof Notification !== 'undefined' && Notification.permission === 'granted';
     if (!sub) {
-      if (settings.hasNotificationPermission && settings.enablePushNotifications !== false) {
-        await subscribeToPushService(settings, plants);
+      if ((isGranted || settings.hasNotificationPermission) && settings.enablePushNotifications !== false) {
+        const subRes = await subscribeToPushService(settings, plants);
+        if (subRes.success && subRes.subscription) {
+          sub = subRes.subscription;
+        }
       }
-      return;
+      if (!sub) return;
     }
 
     const plantReminders = plants.map((p) => ({
@@ -240,6 +244,7 @@ export async function syncPushSchedule(settings: UserSettings, plants: Plant[]):
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         endpoint: sub.endpoint,
+        subscription: sub,
         clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul',
         notificationTime: settings.notificationTime || '09:00',
         enabled: settings.enablePushNotifications !== false,
@@ -248,6 +253,51 @@ export async function syncPushSchedule(settings: UserSettings, plants: Plant[]):
     });
   } catch (err) {
     console.warn('Failed to sync push schedule:', err);
+  }
+}
+
+/**
+ * Automatically reconnect and refresh push subscription on app startup.
+ * If the user has already granted notification permissions and has a push token,
+ * re-sends the subscription to the backend server and Firestore so the device is never lost.
+ */
+export async function autoReconnectPushSubscription(settings: UserSettings, plants: Plant[]): Promise<void> {
+  if (typeof window === 'undefined' || !('serviceWorker' in navigator) || !('PushManager' in window)) {
+    return;
+  }
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return;
+  }
+  if (settings.enablePushNotifications === false) {
+    return;
+  }
+
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      const plantReminders = plants.map((p) => ({
+        id: p.id,
+        name: p.name,
+        species: p.species,
+        nextWaterDate: calculateNextWaterDate(p),
+      }));
+
+      await fetch('/api/notifications/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subscription: sub,
+          clientTimezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'Asia/Seoul',
+          notificationTime: settings.notificationTime || '09:00',
+          enabled: true,
+          plants: plantReminders,
+        }),
+      });
+      console.log('[Push] Auto-reconnected device subscription to server & Firestore');
+    }
+  } catch (err) {
+    console.warn('[Push] Auto-reconnect failed silently:', err);
   }
 }
 
@@ -283,12 +333,29 @@ export async function sendTestNotification(): Promise<{ success: boolean; messag
   try {
     if ('serviceWorker' in navigator) {
       const reg = await navigator.serviceWorker.ready;
-      const sub = await reg.pushManager.getSubscription();
+      let sub = await reg.pushManager.getSubscription();
+
+      if (!sub) {
+        // Attempt to subscribe to push service if token not generated yet
+        const keyRes = await fetch('/api/notifications/vapid-public-key');
+        if (keyRes.ok) {
+          const { publicKey } = await keyRes.json();
+          const applicationServerKey = urlBase64ToUint8Array(publicKey);
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey,
+          });
+        }
+      }
+
       if (sub) {
         const resp = await fetch('/api/notifications/test-push', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ endpoint: sub.endpoint }),
+          body: JSON.stringify({
+            endpoint: sub.endpoint,
+            subscription: sub,
+          }),
         });
         const result = await resp.json();
         if (result.success) {

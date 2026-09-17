@@ -158,13 +158,34 @@ export const SettingsModal: React.FC<Props> = ({
     }, 4500);
   };
 
-  const handleTogglePush = (enabled: boolean) => {
+  const handleTogglePush = async (enabled: boolean) => {
     setEnablePush(enabled);
     onUpdateSettings({ enablePushNotifications: enabled });
-    syncPushSchedule(
-      { ...settings, enablePushNotifications: enabled, notificationTime },
-      plants || []
-    );
+    if (enabled) {
+      setSyncFeedback('알림을 켜는 중입니다...');
+      try {
+        const res = await subscribeToPushService(
+          { ...settings, hasNotificationPermission: true, enablePushNotifications: true, notificationTime },
+          plants || []
+        );
+        if (res.success) {
+          setNotificationPerm('granted');
+          setSyncFeedback(`알림이 켜졌습니다. (매일 ${notificationTime} 발송)`);
+        } else {
+          setSyncFeedback('알림이 켜졌습니다.');
+        }
+      } catch (err) {
+        console.warn('Push enable error:', err);
+        setSyncFeedback('알림이 켜졌습니다.');
+      }
+    } else {
+      setSyncFeedback('알림이 꺼졌습니다.');
+      await syncPushSchedule(
+        { ...settings, enablePushNotifications: false, notificationTime },
+        plants || []
+      );
+    }
+    setTimeout(() => setSyncFeedback(null), 3500);
   };
 
   const handleUpdateNotificationTime = (newTime: string) => {
@@ -617,16 +638,25 @@ export const SettingsModal: React.FC<Props> = ({
                   ) : (
                     <div className="flex-1 flex items-center justify-between px-3 py-2 bg-plant-bg-subtle/70 border border-plant-border-subtle rounded-xl text-xs font-semibold text-plant-primary">
                       <span className="flex items-center gap-1.5">
-                        <Check className="w-3.5 h-3.5" />
-                        <span>알림 수신 대기 중</span>
+                        {enablePush ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>알림 켜짐</span>
+                          </>
+                        ) : (
+                          <>
+                            <Bell className="w-3.5 h-3.5 text-gray-400" />
+                            <span className="text-gray-500">알림 꺼짐</span>
+                          </>
+                        )}
                       </span>
                       <button
                         type="button"
                         onClick={() => handleTogglePush(!enablePush)}
-                        className={`text-[11px] px-2 py-0.5 rounded-md border font-bold transition-colors cursor-pointer ${
+                        className={`text-[11px] px-2.5 py-1 rounded-md border font-bold transition-colors cursor-pointer ${
                           enablePush
-                            ? 'bg-white text-plant-primary border-plant-border-subtle'
-                            : 'bg-gray-200 text-gray-600 border-gray-300'
+                            ? 'bg-white text-plant-primary border-plant-border-subtle hover:bg-plant-bg-subtle shadow-2xs'
+                            : 'bg-gray-200 text-gray-700 border-gray-300 hover:bg-gray-300'
                         }`}
                       >
                         {enablePush ? 'ON' : 'OFF'}

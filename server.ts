@@ -6,14 +6,18 @@ import webpush from 'web-push';
 import { createServer as createViteServer } from 'vite';
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import {
-  getFirestore,
+  initializeFirestore,
+  setLogLevel,
   collection,
   doc,
-  getDocs,
+  getDocsFromServer,
   setDoc,
   deleteDoc,
   type Firestore,
 } from 'firebase/firestore';
+
+// Silence Firestore internal log warnings to prevent unhandled gRPC ECONNRESET messages in server logs
+setLogLevel('silent');
 
 const PORT = 3000;
 const VAPID_KEYS_FILE = path.join(process.cwd(), '.vapid-keys.json');
@@ -77,11 +81,14 @@ function initFirestore(): Firestore | null {
         ? initializeApp({ projectId, apiKey, authDomain })
         : getApp();
 
-      const db = databaseId && databaseId !== '(default)'
-        ? getFirestore(app, databaseId)
-        : getFirestore(app);
+      // Configure Firestore with experimentalForceLongPolling to eliminate persistent gRPC Listen stream resets in Node.js
+      const db = initializeFirestore(
+        app,
+        { experimentalForceLongPolling: true },
+        databaseId && databaseId !== '(default)' ? databaseId : undefined
+      );
 
-      console.log(`[Firebase] Initialized Cloud Firestore for project: ${projectId}, database: ${databaseId}`);
+      console.log(`[Firebase] Initialized Cloud Firestore (HTTP long-polling) for project: ${projectId}, database: ${databaseId}`);
       return db;
     }
   } catch (err) {
@@ -166,7 +173,7 @@ async function loadAllSubscriptions() {
   // 2. Sync from Firebase Firestore if connected
   if (firestoreDb) {
     try {
-      const querySnapshot = await getDocs(collection(firestoreDb, 'push_subscriptions'));
+      const querySnapshot = await getDocsFromServer(collection(firestoreDb, 'push_subscriptions'));
       const remoteSubs: PushSubscriptionRecord[] = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data() as PushSubscriptionRecord;
@@ -224,10 +231,14 @@ interface DispatchDiagnostic {
 }
 
 // Background scheduler: checks every 30 seconds
-async function checkAndDispatchPushNotifications(options: { force?: boolean } = {}): Promise<{
+async function checkAndDispatchPushNotifications(options: { force?: boolean; reloadFromDb?: boolean } = {}): Promise<{
   dispatchedCount: number;
   diagnostics: DispatchDiagnostic[];
 }> {
+  if (options.force || options.reloadFromDb || subscriptions.length === 0) {
+    await loadAllSubscriptions();
+  }
+
   const now = new Date();
   let dispatchedCount = 0;
   const diagnostics: DispatchDiagnostic[] = [];
@@ -479,26 +490,48 @@ async function startServer() {
 
   // 3. Sync schedule (plants changes, notificationTime update, or toggle)
   app.post('/api/notifications/sync-schedule', async (req, res) => {
-    const { endpoint, clientTimezone, notificationTime, enabled, plants } = req.body;
+    const { endpoint, subscription, clientTimezone, notificationTime, enabled, plants } = req.body;
 
     if (!endpoint) {
       res.status(400).json({ error: 'Missing endpoint' });
       return;
     }
 
-    const sub = subscriptions.find((s) => s.endpoint === endpoint);
+    let sub = subscriptions.find((s) => s.endpoint === endpoint);
+    if (!sub) {
+      await loadAllSubscriptions();
+      sub = subscriptions.find((s) => s.endpoint === endpoint);
+    }
+
     if (sub) {
+      if (subscription) sub.subscription = subscription;
       if (clientTimezone) sub.clientTimezone = clientTimezone;
       if (notificationTime) sub.notificationTime = notificationTime;
       if (typeof enabled === 'boolean') sub.enabled = enabled;
       if (Array.isArray(plants)) sub.plants = plants;
       sub.updatedAt = Date.now();
       await persistSubscription(sub);
+    } else if (subscription && subscription.endpoint) {
+      // Auto-upsert subscription if full object is passed
+      const newRecord: PushSubscriptionRecord = {
+        endpoint,
+        subscription,
+        clientTimezone: clientTimezone || 'Asia/Seoul',
+        notificationTime: notificationTime || '09:00',
+        enabled: enabled !== false,
+        lastNotifiedDate: '',
+        plants: Array.isArray(plants) ? plants : [],
+        updatedAt: Date.now(),
+      };
+      subscriptions.push(newRecord);
+      await persistSubscription(newRecord);
+      sub = newRecord;
     }
 
     res.json({
       success: true,
       updated: !!sub,
+      subscriptionsCount: subscriptions.length,
       storage: firestoreDb ? 'firestore' : 'local_file_backup',
     });
   });
@@ -510,8 +543,14 @@ async function startServer() {
     let targetSub: PushSubscriptionRecord | undefined;
     if (endpoint) {
       targetSub = subscriptions.find((s) => s.endpoint === endpoint);
-    } else if (subscription && subscription.endpoint) {
-      targetSub = subscriptions.find((s) => s.endpoint === subscription.endpoint) || {
+      if (!targetSub) {
+        await loadAllSubscriptions();
+        targetSub = subscriptions.find((s) => s.endpoint === endpoint);
+      }
+    }
+    
+    if (!targetSub && subscription && subscription.endpoint) {
+      targetSub = {
         endpoint: subscription.endpoint,
         subscription,
         clientTimezone: 'Asia/Seoul',
@@ -521,6 +560,8 @@ async function startServer() {
         plants: [],
         updatedAt: Date.now(),
       };
+      subscriptions.push(targetSub);
+      await persistSubscription(targetSub);
     }
 
     if (!targetSub && subscriptions.length > 0) {
@@ -557,8 +598,10 @@ async function startServer() {
 
   // 5. Cron & Keep-Alive Ping endpoint (compatible with cron-job.org or external scheduler)
   app.all(['/api/cron', '/api/ping'], async (req, res) => {
+    // Always refresh latest subscriptions from Firestore / disk before executing cron checks
+    await loadAllSubscriptions();
     const force = req.query.force === 'true' || req.query.force === '1' || req.body?.force === true;
-    const { dispatchedCount, diagnostics } = await checkAndDispatchPushNotifications({ force });
+    const { dispatchedCount, diagnostics } = await checkAndDispatchPushNotifications({ force, reloadFromDb: true });
 
     res.json({
       status: 'ok',
