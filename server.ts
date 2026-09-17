@@ -210,13 +210,45 @@ async function sendPushToSubscription(
   }
 }
 
+interface DispatchDiagnostic {
+  endpointMasked: string;
+  timezone: string;
+  localTime: string;
+  targetTime: string;
+  lastNotifiedDate: string;
+  isTimeDue: boolean;
+  notifiedToday: boolean;
+  urgentPlantsCount: number;
+  dispatched: boolean;
+  reason: string;
+}
+
 // Background scheduler: checks every 30 seconds
-async function checkAndDispatchPushNotifications(): Promise<number> {
+async function checkAndDispatchPushNotifications(options: { force?: boolean } = {}): Promise<{
+  dispatchedCount: number;
+  diagnostics: DispatchDiagnostic[];
+}> {
   const now = new Date();
   let dispatchedCount = 0;
+  const diagnostics: DispatchDiagnostic[] = [];
+  const force = !!options.force;
 
   for (const sub of subscriptions) {
-    if (!sub.enabled) continue;
+    if (!sub.enabled && !force) {
+      diagnostics.push({
+        endpointMasked: sub.endpoint.slice(-12),
+        timezone: sub.clientTimezone || 'Asia/Seoul',
+        localTime: '',
+        targetTime: sub.notificationTime || '09:00',
+        lastNotifiedDate: sub.lastNotifiedDate || 'none',
+        isTimeDue: false,
+        notifiedToday: false,
+        urgentPlantsCount: (sub.plants || []).length,
+        dispatched: false,
+        reason: '알림 설정이 비활성화(OFF) 상태입니다.',
+      });
+      continue;
+    }
 
     const tz = sub.clientTimezone || 'Asia/Seoul';
     let localTimeStr = '';
@@ -244,13 +276,16 @@ async function checkAndDispatchPushNotifications(): Promise<number> {
     }
 
     const targetTime = sub.notificationTime || '09:00';
+    // Has the scheduled notification time arrived or passed for today?
+    const isTimeDue = localTimeStr >= targetTime;
+    const notifiedToday = sub.lastNotifiedDate === localDateStr;
 
-    // Dispatch when local time matches notificationTime and has not notified today
-    if (localTimeStr === targetTime && sub.lastNotifiedDate !== localDateStr) {
-      const urgentPlants = (sub.plants || []).filter((p) => {
-        return p.nextWaterDate <= localDateStr;
-      });
+    const urgentPlants = (sub.plants || []).filter((p) => {
+      return p.nextWaterDate <= localDateStr;
+    });
 
+    // Determine if we should dispatch
+    if (force || (isTimeDue && !notifiedToday)) {
       if (urgentPlants.length > 0) {
         let title = '';
         let body = '';
@@ -276,16 +311,100 @@ async function checkAndDispatchPushNotifications(): Promise<number> {
           url: plantId ? `/?plant=${plantId}` : '/',
         });
 
-        if (sent) dispatchedCount++;
+        if (sent) {
+          dispatchedCount++;
+          if (!force) sub.lastNotifiedDate = localDateStr;
+          await persistSubscription(sub);
+          diagnostics.push({
+            endpointMasked: sub.endpoint.slice(-12),
+            timezone: tz,
+            localTime: localTimeStr,
+            targetTime,
+            lastNotifiedDate: sub.lastNotifiedDate,
+            isTimeDue,
+            notifiedToday,
+            urgentPlantsCount: urgentPlants.length,
+            dispatched: true,
+            reason: `물줄 식물 ${urgentPlants.length}건에 대해 푸시 알림이 발송되었습니다.`,
+          });
+        } else {
+          diagnostics.push({
+            endpointMasked: sub.endpoint.slice(-12),
+            timezone: tz,
+            localTime: localTimeStr,
+            targetTime,
+            lastNotifiedDate: sub.lastNotifiedDate,
+            isTimeDue,
+            notifiedToday,
+            urgentPlantsCount: urgentPlants.length,
+            dispatched: false,
+            reason: 'Web Push 전송 실패 (브라우저 푸시 서버 오류 또는 만료된 구독)',
+          });
+        }
+      } else {
+        // No urgent plants today
+        if (force) {
+          // In force test mode, send a confirmation push anyway
+          const sent = await sendPushToSubscription(sub, {
+            title: '🌱 [알림 테스트] 플랜타리움',
+            body: '모든 식물이 촉촉하게 관리되고 있습니다! cron-job 및 푸시 연동이 완벽하게 정상 동작 중입니다. 💧',
+            tag: 'cron-force-test',
+            url: '/',
+          });
+          if (sent) dispatchedCount++;
+          diagnostics.push({
+            endpointMasked: sub.endpoint.slice(-12),
+            timezone: tz,
+            localTime: localTimeStr,
+            targetTime,
+            lastNotifiedDate: sub.lastNotifiedDate,
+            isTimeDue,
+            notifiedToday,
+            urgentPlantsCount: 0,
+            dispatched: sent,
+            reason: '강제(Force) 모드: 오늘 물줄 식물이 없으나 테스트 푸시를 발송했습니다.',
+          });
+        } else {
+          // Normal mode: mark as checked today so we don't re-check unnecessarily
+          sub.lastNotifiedDate = localDateStr;
+          await persistSubscription(sub);
+          diagnostics.push({
+            endpointMasked: sub.endpoint.slice(-12),
+            timezone: tz,
+            localTime: localTimeStr,
+            targetTime,
+            lastNotifiedDate: sub.lastNotifiedDate,
+            isTimeDue,
+            notifiedToday,
+            urgentPlantsCount: 0,
+            dispatched: false,
+            reason: '설정 시간 도달했으나 오늘 물주기가 필요한 식물이 없습니다.',
+          });
+        }
       }
-
-      // Mark as notified today so we don't duplicate within the same minute
-      sub.lastNotifiedDate = localDateStr;
-      await persistSubscription(sub);
+    } else {
+      let skipReason = '';
+      if (notifiedToday) {
+        skipReason = `오늘(${localDateStr}) 이미 알림이 발송 완료되었습니다.`;
+      } else if (!isTimeDue) {
+        skipReason = `현재 시각(${localTimeStr})이 설정된 알림 시간(${targetTime}) 이전입니다.`;
+      }
+      diagnostics.push({
+        endpointMasked: sub.endpoint.slice(-12),
+        timezone: tz,
+        localTime: localTimeStr,
+        targetTime,
+        lastNotifiedDate: sub.lastNotifiedDate,
+        isTimeDue,
+        notifiedToday,
+        urgentPlantsCount: urgentPlants.length,
+        dispatched: false,
+        reason: skipReason,
+      });
     }
   }
 
-  return dispatchedCount;
+  return { dispatchedCount, diagnostics };
 }
 
 // Start background cron scheduler (runs every 30 seconds for 24/7 server)
@@ -437,15 +556,25 @@ async function startServer() {
   });
 
   // 5. Cron & Keep-Alive Ping endpoint (compatible with cron-job.org or external scheduler)
-  app.all(['/api/cron', '/api/ping'], async (_req, res) => {
-    const dispatched = await checkAndDispatchPushNotifications();
+  app.all(['/api/cron', '/api/ping'], async (req, res) => {
+    const force = req.query.force === 'true' || req.query.force === '1' || req.body?.force === true;
+    const { dispatchedCount, diagnostics } = await checkAndDispatchPushNotifications({ force });
+
     res.json({
       status: 'ok',
-      message: 'Render keep-alive & cron check successful',
+      mode: force ? 'FORCE_TEST' : 'SCHEDULED_CHECK',
+      message: force
+        ? '강제 즉시 발송(Force) 모드로 실행되었습니다.'
+        : '정기 스케줄 검사가 완료되었습니다.',
       serverTime: new Date().toISOString(),
       subscriptionsCount: subscriptions.length,
-      dispatched,
+      dispatched: dispatchedCount,
       storage: firestoreDb ? 'firestore' : 'local_file_backup',
+      hint:
+        subscriptions.length === 0
+          ? '⚠️ 현재 서버에 등록된 푸시 구독 기기가 0대입니다. 배포된 웹사이트(Render 도메인)에 접속하여 [설정] > [알림 허용/켜기]를 먼저 완료해주세요.'
+          : '✅ 등록된 푸시 기기가 정상적으로 존재합니다.',
+      details: diagnostics,
     });
   });
 
