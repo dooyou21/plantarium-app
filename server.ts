@@ -10,7 +10,7 @@ import {
   setLogLevel,
   collection,
   doc,
-  getDocsFromServer,
+  getDocs,
   setDoc,
   deleteDoc,
   type Firestore,
@@ -173,7 +173,7 @@ async function loadAllSubscriptions() {
   // 2. Sync from Firebase Firestore if connected
   if (firestoreDb) {
     try {
-      const querySnapshot = await getDocsFromServer(collection(firestoreDb, 'push_subscriptions'));
+      const querySnapshot = await getDocs(collection(firestoreDb, 'push_subscriptions'));
       const remoteSubs: PushSubscriptionRecord[] = [];
       querySnapshot.forEach((docSnap) => {
         const data = docSnap.data() as PushSubscriptionRecord;
@@ -190,8 +190,8 @@ async function loadAllSubscriptions() {
         saveSubscriptionsLocal();
         console.log(`[Firebase] Loaded & synchronized ${remoteSubs.length} subscriptions from Firestore`);
       }
-    } catch (err) {
-      console.warn('[Firebase] Could not fetch subscriptions from Firestore:', err);
+    } catch (err: any) {
+      console.warn('[Firebase] Firestore subscription sync notice (using local cache/disk):', err?.message || err);
     }
   }
 }
