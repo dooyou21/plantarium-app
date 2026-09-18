@@ -11,14 +11,14 @@ services:
       - key: NODE_ENV
         value: production
       - key: VAPID_PUBLIC_KEY
-        value: BDi6NOqHJGEszit024ofoJklaee6UMWTxWX2TB475SRibe8QLLrmEGKZ1DnJlEAfggjR-lwQhG5jrsK01juhLLw
+        sync: false
       - key: VAPID_PRIVATE_KEY
-        value: BveK3mR1uyAgWbCeHJWFQmKMIcdDLALUO4ZJ5pestIs
+        sync: false
       - key: VAPID_SUBJECT
-        value: mailto:cubeclock94@gmail.com
+        sync: false
       - key: FIREBASE_PROJECT_ID
-        value: plantarium-506514
+        sync: false
       - key: FIREBASE_API_KEY
-        value: AIzaSyAPT06G8At0JhFefHbZEUVuZuD3Ckb-Wkk
+        sync: false
       - key: FIREBASE_FIRESTORE_DATABASE_ID
-        value: ai-studio-plantarium-2ad6b567-2ea5-44ca-a6c2-7474b5e96896
+        sync: false

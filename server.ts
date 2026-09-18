@@ -52,7 +52,7 @@ if (process.env.VAPID_PUBLIC_KEY && process.env.VAPID_PRIVATE_KEY) {
   }
 }
 
-const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:cubeclock94@gmail.com';
+const vapidSubject = process.env.VAPID_SUBJECT || 'mailto:admin@plantarium.app';
 webpush.setVapidDetails(
   vapidSubject,
   vapidKeys.publicKey,
